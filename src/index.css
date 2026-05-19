@@ -1,0 +1,102 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 210 40% 96%;
+    --primary-foreground: 222 47% 11%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 45 93% 47%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 45 93% 47%;
+    --radius: 0.5rem;
+
+    --sidebar-background: 210 40% 98%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-primary: 45 93% 47%;
+    --sidebar-primary-foreground: 222 47% 11%;
+    --sidebar-accent: 210 40% 96%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 214 32% 91%;
+    --sidebar-ring: 45 93% 47%;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: #F1F5F9;
+    color: #1E293B;
+    font-family: 'Inter', 'SF Pro Display', -apple-system, 'Segoe UI', 'PingFang SC', 'Noto Sans SC', sans-serif;
+    min-height: 100dvh;
+    overflow-x: hidden;
+  }
+
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  /* Scrollbar styling for light theme */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #F1F5F9;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #CBD5E1;
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #94A3B8;
+  }
+
+  /* Font for data/numbers */
+  .font-data {
+    font-family: 'JetBrains Mono', 'Roboto Mono', 'SF Mono', monospace;
+  }
+
+  /* Gradient backgrounds */
+  .bg-primary-gradient {
+    background: linear-gradient(135deg, #FFFFFF 0%, #F1F5F9 100%);
+  }
+
+  .bg-accent-gradient {
+    background: linear-gradient(135deg, #EAB308 0%, #CA8A04 100%);
+  }
+
+  .bg-danger-gradient {
+    background: linear-gradient(135deg, #DC2626 0%, #991B1B 100%);
+  }
+}
+
+
+/* prefers-reduced-motion: 暂停 Hero beam SVG 动画 */
+@media (prefers-reduced-motion: reduce) {
+  .hero-warehouse-beams svg * {
+    animation: none !important;
+  }
+}
