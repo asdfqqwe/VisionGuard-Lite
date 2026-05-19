@@ -121,7 +121,7 @@ export const AdminFrame: FC = () => {
           </div>
           <div className="flex items-center gap-3">
             <span className="text-xs text-text-muted">
-              上次同步: 2024-03-16 11:30
+              上次同步: 2026年5月20日 14:32:18
             </span>
             <div className="flex items-center gap-1.5 rounded-full bg-success/10 px-2.5 py-1">
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-success" />

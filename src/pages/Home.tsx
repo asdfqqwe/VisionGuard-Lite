@@ -1,4 +1,3 @@
-import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -8,41 +7,71 @@ import {
   ClipboardCheck,
   TrendingUp,
   Target,
+  Activity,
+  ShieldAlert,
+  Cloud,
+  ShieldCheck,
+  Wallet,
+  Gauge,
+  Zap,
+  Workflow,
+  BrainCircuit,
+  AlertTriangle,
+  RefreshCcw,
+  ArrowRight,
 } from 'lucide-react';
 import { dashboardData } from '@/data/mockData';
 import {
-  HeroWarehouseBeams,
+  GlobeWithChips,
   KpiMetricCard,
   TerminalCard,
-  SystemStatusBar,
+  SectionTitle,
+  RuntimeStatusCard,
+  ValueCard,
 } from '@/components/home';
+
+// ─── 编排假数据(C1)───
+const KPI_SPARKS = {
+  intercept: [820, 940, 880, 1020, 960, 1140, 1247],
+  value: [280, 305, 290, 340, 320, 360, 386],
+  accuracy: [98.4, 98.7, 99.0, 98.9, 99.3, 99.5, 99.7],
+};
+
+const RUNTIME_SPARKS = {
+  station: [3, 4, 4, 5, 4, 4, 4],
+  pda: [9, 10, 11, 12, 11, 13, 12],
+  exception: [5, 4, 6, 3, 4, 3, 3],
+  l1: [0, 1, 0, 0, 1, 0, 0],
+};
+
+const HERO_FEATURES = [
+  {
+    icon: <Workflow className="h-3.5 w-3.5" />,
+    title: '全链路质检',
+    desc: '覆盖入库 · 出库全流程',
+  },
+  {
+    icon: <BrainCircuit className="h-3.5 w-3.5" />,
+    title: 'AI智能识别',
+    desc: '多模态融合,高精度检测',
+  },
+  {
+    icon: <AlertTriangle className="h-3.5 w-3.5" />,
+    title: '风险实时拦截',
+    desc: '异常自动预警与拦截',
+  },
+  {
+    icon: <RefreshCcw className="h-3.5 w-3.5" />,
+    title: '数据闭环',
+    desc: '规则供给,持续进化',
+  },
+];
 
 // ─── Home Page ───
 export default function Home() {
-  const heroRef = useRef<HTMLDivElement>(null);
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-
-  // 鼠标视差,reduced-motion 时直接禁用
-  useEffect(() => {
-    const reduceMotion =
-      typeof window !== 'undefined' &&
-      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    if (reduceMotion) return;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!heroRef.current) return;
-      const rect = heroRef.current.getBoundingClientRect();
-      const x = ((e.clientX - rect.left) / rect.width - 0.5) * 12;
-      const y = ((e.clientY - rect.top) / rect.height - 0.5) * 12;
-      setMousePos({ x, y });
-    };
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, []);
-
   return (
     <div className="min-h-[100dvh] bg-[#F1F5F9]">
-      {/* ─── Top Navigation ─── */}
+      {/* ─── Top Navigation: 仅 Logo,右侧空白 ─── */}
       <motion.header
         initial={{ y: -64 }}
         animate={{ y: 0 }}
@@ -53,26 +82,23 @@ export default function Home() {
           <Link to="/" className="flex items-center gap-3">
             <img src="/images/logo.png" alt="智见Lite" className="h-14 w-auto" />
           </Link>
-          <motion.span
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
-            className="text-xs text-text-muted"
-          >
-            V3.2.1
-          </motion.span>
         </div>
       </motion.header>
 
-      {/* ─── Hero Section ─── */}
-      <section
-        ref={heroRef}
-        className="relative flex min-h-[460px] items-center justify-center overflow-hidden pt-16"
-      >
-        {/* 仓储质检全链路 integration 动画背景 */}
-        <HeroWarehouseBeams />
-
-        {/* 极淡网格(增加质感,但不抢戏) */}
+      {/* ─── Hero Section:左右两栏 ─── */}
+      <section className="relative overflow-hidden pt-16">
+        {/* Hero 背景渐变 */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              'radial-gradient(circle at 75% 35%, rgba(59,130,246,0.12), transparent 36%),' +
+              'radial-gradient(circle at 92% 60%, rgba(234,179,8,0.06), transparent 26%),' +
+              'linear-gradient(180deg, #F8FAFC 0%, #EEF4FB 60%, #F1F5F9 100%)',
+          }}
+          aria-hidden
+        />
+        {/* 极淡网格 */}
         <div
           className="pointer-events-none absolute inset-0 opacity-[0.04]"
           style={{
@@ -83,81 +109,97 @@ export default function Home() {
           aria-hidden
         />
 
-        {/* Hero 内容 */}
-        <motion.div
-          className="relative z-10 mx-auto w-full max-w-[1100px] px-6 text-center"
-          animate={{ x: mousePos.x * 0.4, y: mousePos.y * 0.4 }}
-          transition={{ type: 'tween', ease: 'linear', duration: 0.2 }}
-        >
-          {/* 主标题 */}
-          <motion.h1
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.2 }}
-            className="text-5xl font-bold tracking-tight text-[#0F172A] md:text-[48px]"
-          >
-            <span className="text-accent">智见</span>
-            <span> · 仓储质检AI系统</span>
-          </motion.h1>
+        <div className="relative mx-auto grid w-full max-w-[1280px] grid-cols-1 gap-6 px-6 py-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:py-10">
+          {/* 左栏:文案 + KPI + 特性 */}
+          <div className="flex flex-col justify-center">
+            <motion.h1
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.1 }}
+              className="text-[34px] font-bold tracking-tight text-[#0F172A] md:text-[38px]"
+            >
+              <span className="text-accent">智见</span>
+              <span> · 仓储质检AI系统</span>
+            </motion.h1>
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.22 }}
+              className="mt-2.5 text-sm text-text-secondary md:text-base"
+              style={{ letterSpacing: '0.02em' }}
+            >
+              AI驱动的全链路仓储质检 · 从入库到出库 · 拦截每一件异常
+            </motion.p>
 
-          {/* 副标题 */}
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.32 }}
-            className="mt-4 text-base text-text-secondary md:text-lg"
-            style={{ letterSpacing: '0.04em' }}
-          >
-            AI驱动的全链路仓储质检 · 从入库到出库 · 拦截每一件异常
-          </motion.p>
+            {/* KPI 玻璃卡组(带 sparkline + 同比) */}
+            <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <KpiMetricCard
+                icon={<ClipboardCheck className="h-4 w-4" />}
+                value={dashboardData.todayInterceptCount}
+                label="今日拦截件数"
+                trend={12.5}
+                sparkData={KPI_SPARKS.intercept}
+                sparkColor="#3B82F6"
+                delay={300}
+              />
+              <KpiMetricCard
+                icon={<TrendingUp className="h-4 w-4" />}
+                value={386}
+                formatter={(n) => `¥${n}万`}
+                label="今日拦截价值"
+                trend={8.3}
+                sparkData={KPI_SPARKS.value}
+                sparkColor="#EAB308"
+                delay={380}
+              />
+              <KpiMetricCard
+                icon={<Target className="h-4 w-4" />}
+                value={997}
+                formatter={(n) => `${(n / 10).toFixed(1)}%`}
+                label="AI识别准确率"
+                valueColor="text-success"
+                trend={0.2}
+                sparkData={KPI_SPARKS.accuracy}
+                sparkColor="#22C55E"
+                delay={460}
+              />
+            </div>
 
-          {/* KPI 玻璃卡组 */}
-          <div className="mx-auto mt-8 grid max-w-[860px] grid-cols-1 gap-4 sm:grid-cols-3">
-            <KpiMetricCard
-              icon={<ClipboardCheck className="h-5 w-5" />}
-              value={dashboardData.todayInterceptCount}
-              label="今日拦截件数"
-              delay={500}
-            />
-            <KpiMetricCard
-              icon={<TrendingUp className="h-5 w-5" />}
-              value={386}
-              formatter={(n) => `¥${n}万`}
-              label="今日拦截价值"
-              delay={580}
-            />
-            <KpiMetricCard
-              icon={<Target className="h-5 w-5" />}
-              value={997}
-              formatter={(n) => `${(n / 10).toFixed(1)}%`}
-              label="AI识别准确率"
-              valueColor="text-success"
-              delay={660}
-            />
+            {/* 4 个特性 */}
+            <div className="mt-5 grid grid-cols-2 gap-x-5 gap-y-2.5 sm:grid-cols-4">
+              {HERO_FEATURES.map((f, i) => (
+                <motion.div
+                  key={f.title}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.55 + i * 0.06 }}
+                  className="flex items-start gap-2"
+                >
+                  <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-info/10 text-info">
+                    {f.icon}
+                  </span>
+                  <div className="min-w-0">
+                    <div className="text-[13px] font-medium text-text-primary">
+                      {f.title}
+                    </div>
+                    <div className="text-[11px] text-text-muted">{f.desc}</div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
           </div>
-        </motion.div>
+
+          {/* 右栏:地球 + 围绕胶囊 */}
+          <div className="relative flex h-[400px] items-center justify-center lg:h-[480px]">
+            <GlobeWithChips />
+          </div>
+        </div>
       </section>
 
-      {/* ─── Device Cards Section ─── */}
-      <section className="mx-auto max-w-[1200px] px-6 pt-12 pb-10">
-        {/* 段标题 */}
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.1 }}
-          className="mb-6"
-        >
-          <h2 className="text-2xl font-semibold text-[#0F172A]">选择终端设备</h2>
-          <motion.div
-            initial={{ width: 0 }}
-            animate={{ width: 60 }}
-            transition={{ duration: 0.4, delay: 0.3 }}
-            className="mt-2 h-1 rounded bg-accent"
-          />
-        </motion.div>
-
-        {/* 卡片网格 */}
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+      {/* ─── 选择终端设备 ─── */}
+      <section className="mx-auto max-w-[1280px] px-6 pt-6 pb-8">
+        <SectionTitle title="选择终端设备" />
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
           <TerminalCard
             icon={<Smartphone className="h-5 w-5" />}
             title="PDA手持终端"
@@ -188,21 +230,121 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ─── System Status Bar ─── */}
-      <section className="mx-auto max-w-[1200px] px-6 pb-12">
-        <SystemStatusBar
-          onlineStations={dashboardData.onlineStations}
-          onlinePDAs={dashboardData.onlinePDAs}
-          pendingExceptions={dashboardData.pendingExceptions}
-          l1Intercepting={dashboardData.l1Intercepting}
+      {/* ─── 实时运行状态 ─── */}
+      <section className="mx-auto max-w-[1280px] px-6 py-8">
+        <SectionTitle
+          title="实时运行状态"
+          extra={
+            <div className="flex items-center gap-3">
+              <span>更新时间:2026年5月20日 14:32:18</span>
+              <Link
+                to="/admin/dashboard"
+                className="inline-flex items-center gap-1 rounded-md bg-info/10 px-2.5 py-1 text-info transition-colors hover:bg-info/15"
+              >
+                进入实时监控
+                <ArrowRight className="h-3 w-3" />
+              </Link>
+            </div>
+          }
         />
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <RuntimeStatusCard
+            icon={<Activity className="h-3.5 w-3.5" />}
+            label="在线Station"
+            value={dashboardData.onlineStations}
+            total={6}
+            tone="success"
+            sparkData={RUNTIME_SPARKS.station}
+            delay={0}
+          />
+          <RuntimeStatusCard
+            icon={<Smartphone className="h-3.5 w-3.5" />}
+            label="在线PDA"
+            value={dashboardData.onlinePDAs}
+            total={18}
+            tone="info"
+            sparkData={RUNTIME_SPARKS.pda}
+            delay={80}
+          />
+          <RuntimeStatusCard
+            icon={<ShieldAlert className="h-3.5 w-3.5" />}
+            label="待处理异常"
+            value={dashboardData.pendingExceptions}
+            unit="件"
+            tone="warning"
+            sparkData={RUNTIME_SPARKS.exception}
+            delay={160}
+          />
+          <RuntimeStatusCard
+            icon={<Cloud className="h-3.5 w-3.5" />}
+            label="L1拦截中"
+            value={dashboardData.l1Intercepting}
+            unit="件"
+            tone={dashboardData.l1Intercepting > 0 ? 'danger' : 'muted'}
+            sparkData={RUNTIME_SPARKS.l1}
+            delay={240}
+          />
+        </div>
       </section>
 
-      {/* ─── Footer ─── */}
-      <footer className="border-t border-border-light/60 bg-[#F1F5F9] py-4">
-        <p className="text-center text-xs text-text-muted">
-          智见 © 2024 仓储质检AI系统 v3.2.1
-        </p>
+      {/* ─── 系统价值 ─── */}
+      <section className="mx-auto max-w-[1280px] px-6 pt-2 pb-10">
+        <SectionTitle title="系统价值" />
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <ValueCard
+            icon={<ShieldCheck className="h-4 w-4" />}
+            label="拦截准确率"
+            value="99.7%"
+            caption="AI智能识别 · 精准拦截"
+            tone="success"
+            delay={0}
+          />
+          <ValueCard
+            icon={<Wallet className="h-4 w-4" />}
+            label="拦截价值(今日)"
+            value="¥386万"
+            caption="减少损失 · 提升品质"
+            tone="accent"
+            delay={80}
+          />
+          <ValueCard
+            icon={<Gauge className="h-4 w-4" />}
+            label="拦截率"
+            value="提升92%"
+            caption="相比人工质检效率"
+            tone="info"
+            delay={160}
+          />
+          <ValueCard
+            icon={<Zap className="h-4 w-4" />}
+            label="异常响应提速"
+            value="提升68%"
+            caption="平均响应时间缩短"
+            tone="info"
+            delay={240}
+          />
+        </div>
+      </section>
+
+      {/* ─── Footer (B3) ─── */}
+      <footer className="border-t border-border-light/60 bg-[#F1F5F9]">
+        <div className="mx-auto flex max-w-[1280px] flex-col items-start justify-between gap-3 px-6 py-5 sm:flex-row sm:items-center">
+          <div className="flex items-center gap-2.5">
+            <img src="/images/logo.png" alt="智见Lite" className="h-7 w-auto" />
+            <span className="text-xs text-text-muted">
+              AI驱动的仓储质检系统,让每一件产品都值得信赖
+            </span>
+          </div>
+          <div className="flex items-center gap-4 text-xs text-text-muted">
+            <span>智见 © 2026 仓储质检AI系统</span>
+            <a className="transition-colors hover:text-text-secondary" href="#">
+              隐私政策
+            </a>
+            <a className="transition-colors hover:text-text-secondary" href="#">
+              使用条款
+            </a>
+          </div>
+        </div>
       </footer>
     </div>
   );
