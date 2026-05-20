@@ -57,7 +57,6 @@ export const FullScreenAlert: FC<FullScreenAlertProps> = ({
           className={cn(
             'fixed inset-0 z-[100] flex flex-col items-center justify-center',
             styles.bg,
-            severity !== 'warning' && 'animate-flash-alert'
           )}
         >
           {/* Top alert bar */}
@@ -94,7 +93,7 @@ export const FullScreenAlert: FC<FullScreenAlertProps> = ({
           {/* Fire alert indicator for multi-modal */}
           {severity === 'danger-deep' && (
             <div className="absolute bottom-8 flex items-center gap-2">
-              <div className="h-3 w-3 animate-pulse rounded-full bg-danger" />
+              <div className="h-3 w-3 rounded-full bg-danger" />
               <span className="text-sm font-medium text-white/80">消防联动已激活</span>
             </div>
           )}

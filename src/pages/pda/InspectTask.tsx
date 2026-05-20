@@ -47,7 +47,7 @@ const InspectTaskPage: FC = () => {
         {filtered.map((task) => (
           <button
             key={task.taskNo}
-            onClick={() => navigate('/pda/inspect/check')}
+            onClick={() => navigate('/pda/inspect/check', { state: { taskNo: task.taskNo } })}
             className="w-full rounded-lg bg-white p-3 text-left transition-all active:scale-[0.98] active:bg-info/10"
           >
             <div className="flex items-center justify-between">

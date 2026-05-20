@@ -13,10 +13,26 @@ const ReportEdit: FC = () => {
   const [anomalyType, setAnomalyType] = useState('');
   const [handler, setHandler] = useState('');
   const [notes, setNotes] = useState('');
+  const [submitted, setSubmitted] = useState(false);
 
   const handleSubmit = () => {
-    navigate('/exceptions');
+    setSubmitted(true);
+    setTimeout(() => navigate('/pda/exceptions'), 900);
   };
+
+  if (submitted) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center bg-primary px-4">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-success/20">
+          <svg className="h-8 w-8 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <p className="mt-4 text-lg font-semibold text-success">上报成功</p>
+        <p className="mt-2 text-sm text-text-muted">已生成异常报告 {draftId || 'AR-001'}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full bg-primary px-4 pt-3 pb-4">
@@ -90,6 +106,7 @@ const ReportEdit: FC = () => {
       <div className="mt-6">
         <button
           onClick={handleSubmit}
+          disabled={!anomalyType || !handler}
           className={cn('h-11 w-full rounded-md bg-accent-gradient text-sm font-semibold text-white', 'active:scale-[0.98]')}
         >
           提交上报

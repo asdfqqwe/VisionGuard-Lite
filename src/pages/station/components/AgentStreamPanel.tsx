@@ -8,7 +8,7 @@
 
 import type { FC } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bot, Check, CheckCircle2, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { Bot, Check, CheckCircle2, AlertTriangle, ShieldAlert, Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type {
   PlayerPhase,
@@ -27,6 +27,11 @@ interface AgentStreamPanelProps {
   totalCount: number;
   /** 用于 finished 阶段展示当前指针 */
   cursor: number;
+  onApprovePass: () => void;
+  onAssignL2Review: () => void;
+  onHoldL2Review: () => void;
+  onConfirmL1Block: () => void;
+  onCreateWorkOrder: () => void;
 }
 
 const STAGE_LABELS = ['接收图像', '视觉点数', '标签 OCR', '字段 OCR', '综合判定'];
@@ -159,6 +164,11 @@ export const AgentStreamPanel: FC<AgentStreamPanelProps> = ({
   workOrderMessage,
   totalCount,
   cursor,
+  onApprovePass,
+  onAssignL2Review,
+  onHoldL2Review,
+  onConfirmL1Block,
+  onCreateWorkOrder,
 }) => {
   if (!currentItem) {
     // finished 终态
@@ -176,6 +186,7 @@ export const AgentStreamPanel: FC<AgentStreamPanelProps> = ({
   const tone = SUMMARY_TONE[currentItem.outcome];
   const showFinalCards =
     streamLines.find((l) => l.step === 4)?.done === true;
+  const isPass = currentItem.outcome === 'pass';
 
   return (
     <div className="flex flex-1 flex-col gap-2 overflow-y-auto pr-0.5">
@@ -262,15 +273,59 @@ export const AgentStreamPanel: FC<AgentStreamPanelProps> = ({
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.08 }}
-            className="rounded-lg border border-info/30 bg-info/5 p-2.5"
+            className={cn(
+              'rounded-lg border p-2.5',
+              isPass
+                ? 'border-success/35 bg-success/8'
+                : currentItem.outcome === 'l2'
+                  ? 'border-l2-badge/35 bg-l2-badge/8'
+                  : 'border-l1-badge/35 bg-l1-badge/8',
+            )}
           >
             <div className="flex items-center gap-1.5">
-              <Bot className="h-3.5 w-3.5 text-info" />
-              <span className="text-[11px] font-semibold text-info">Agent 处置建议</span>
+              {isPass ? (
+                <CheckCircle2 className="h-3.5 w-3.5 text-success" />
+              ) : (
+                <Bot
+                  className={cn(
+                    'h-3.5 w-3.5',
+                    currentItem.outcome === 'l2' ? 'text-l2-badge' : 'text-l1-badge',
+                  )}
+                />
+              )}
+              <span
+                className={cn(
+                  'text-[11px] font-semibold',
+                  isPass
+                    ? 'text-success'
+                    : currentItem.outcome === 'l2'
+                      ? 'text-l2-badge'
+                      : 'text-l1-badge',
+                )}
+              >
+                {isPass ? 'Agent 通过确认' : 'Agent 处置建议'}
+              </span>
             </div>
             <p className="mt-1 text-[11px] leading-relaxed text-text-secondary">
-              {currentItem.agentSuggestion}
+              {isPass ? '未发现异常，Agent 已确认通过，可直接进入后续入库流程。' : currentItem.agentSuggestion}
             </p>
+            {!isPass && (
+              <div className="mt-2 rounded bg-white/60 px-2 py-1.5">
+                <div className="flex items-center gap-1.5">
+                  <Send className="h-3 w-3 text-info" />
+                  <span className="text-[10px] font-semibold text-text-primary">
+                    飞书推荐处理人
+                  </span>
+                </div>
+                <p className="mt-1 text-[10px] leading-relaxed text-text-secondary">
+                  {currentItem.outcome === 'l2'
+                    ? currentItem.materialName === '前保险杠'
+                      ? '李娜（来料质检）· 当班在线 · 负责外观与标签复核'
+                      : '周明（标签 OCR 复核）· 当班在线 · 负责标准号与条码复核'
+                    : '王强（安全主管）+ 陈璐（危化品专员）· 当班在线 · 负责 L1 拦截处置'}
+                </p>
+              </div>
+            )}
             {pushedBadges && (
               <div className="mt-2 flex flex-wrap gap-1">
                 {pushedBadges.ae && (
@@ -296,6 +351,76 @@ export const AgentStreamPanel: FC<AgentStreamPanelProps> = ({
               </div>
             )}
           </motion.div>
+
+          {phase === 'reviewing' && (
+            <motion.div
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-lg border border-success/30 bg-success/8 p-2.5"
+            >
+              <p className="text-[11px] text-text-secondary">
+                操作员确认后，系统会归档检测截图与 OCR 结果。
+              </p>
+              <button
+                onClick={onApprovePass}
+                className="mt-2 w-full rounded bg-success px-2.5 py-1.5 text-[11px] font-medium text-white transition-colors hover:bg-success/90"
+              >
+                确认通过并进入下一件
+              </button>
+            </motion.div>
+          )}
+
+          {phase === 'awaitingL2Action' && (
+            <motion.div
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-lg border border-l2-badge/40 bg-l2-badge/8 p-2.5"
+            >
+              <p className="text-[11px] text-text-secondary">
+                黄色告警需要质检员处理，Agent 建议优先走飞书指派。
+              </p>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <button
+                  onClick={onAssignL2Review}
+                  className="rounded bg-l2-badge px-2 py-1.5 text-[11px] font-medium text-white transition-colors hover:bg-l2-badge/90"
+                >
+                  飞书指派
+                </button>
+                <button
+                  onClick={onHoldL2Review}
+                  className="rounded border border-l2-badge/40 px-2 py-1.5 text-[11px] font-medium text-l2-badge transition-colors hover:bg-l2-badge/10"
+                >
+                  暂存复核
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {phase === 'awaitingConfirm' && (
+            <motion.div
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-lg border border-l1-badge/40 bg-l1-badge/8 p-2.5"
+            >
+              <p className="text-[11px] text-text-secondary">
+                红色告警已推荐飞书通知王强和陈璐，需同步创建安全处置工单。
+              </p>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <button
+                  onClick={onCreateWorkOrder}
+                  className="rounded bg-l1-badge px-2 py-1.5 text-[11px] font-medium text-white transition-colors hover:bg-l1-badge/90"
+                >
+                  创建并指派
+                </button>
+                <button
+                  onClick={onConfirmL1Block}
+                  className="rounded border border-l1-badge/40 px-2 py-1.5 text-[11px] font-medium text-l1-badge transition-colors hover:bg-l1-badge/10"
+                >
+                  仅确认拦截
+                </button>
+              </div>
+            </motion.div>
+          )}
         </>
       )}
 

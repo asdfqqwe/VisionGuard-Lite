@@ -1,5 +1,6 @@
 import type { FC } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { inspectionTasks, recountTasks } from '@/data/mockData';
 import { cn } from '@/lib/utils';
 
 const recountData = [
@@ -11,16 +12,28 @@ const recountData = [
 
 const Recount: FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const state = location.state as { taskNo?: string; actualQuantity?: number } | null;
+  const recountTask = recountTasks.find((task) => task.taskNo === state?.taskNo) || recountTasks[0];
+  const inspectionTask = inspectionTasks.find((task) => task.taskNo === state?.taskNo || task.location === recountTask.location);
+  const currentRows = inspectionTask
+    ? [{
+        materialName: inspectionTask.materialName,
+        systemQty: inspectionTask.systemQuantity,
+        actualQty: state?.actualQuantity ?? inspectionTask.actualQuantity ?? inspectionTask.systemQuantity,
+        unit: inspectionTask.unit,
+      }]
+    : recountData;
 
-  const hasDiff = recountData.some(r => r.systemQty !== r.actualQty);
+  const hasDiff = currentRows.some(r => r.systemQty !== r.actualQty);
 
   return (
     <div className="h-full bg-primary px-4 pt-3 pb-4">
       {/* Info Card */}
       <div className="rounded-lg bg-white p-3">
-        <div className="font-data text-sm font-semibold text-info">RC-001</div>
-        <div className="mt-1 text-sm text-text-primary">A-03-05 区域盘点</div>
-        <div className="mt-1 text-xs text-text-muted">触发原因：PDA巡检差异（INS-002）</div>
+        <div className="font-data text-sm font-semibold text-info">{recountTask.taskNo}</div>
+        <div className="mt-1 text-sm text-text-primary">{recountTask.location} 区域盘点</div>
+        <div className="mt-1 text-xs text-text-muted">触发原因：{recountTask.triggerSource}{inspectionTask ? `（${inspectionTask.taskNo}）` : ''}</div>
         <div className="mt-2">
           <span className="rounded bg-warning/15 px-2 py-0.5 text-[11px] text-warning">进行中</span>
         </div>
@@ -37,7 +50,7 @@ const Recount: FC = () => {
             <div className="px-2 py-2 text-center text-[11px] text-text-muted">差异值</div>
           </div>
           {/* Rows */}
-          {recountData.map((row, idx) => {
+          {currentRows.map((row, idx) => {
             const diff = row.actualQty - row.systemQty;
             return (
               <div key={idx} className={cn('grid grid-cols-3 border-t border-border',
@@ -75,10 +88,10 @@ const Recount: FC = () => {
       {/* Bottom Actions */}
       <div className="mt-6 flex gap-3">
         <button
-          onClick={() => navigate('/pda/problem/handover')}
+          onClick={() => navigate('/pda/recount/result', { state: { taskNo: recountTask.taskNo } })}
           className="flex h-11 flex-1 items-center justify-center rounded bg-warning text-sm font-semibold text-white"
         >
-          调整数量
+          处理差异
         </button>
         <button
           onClick={() => navigate('/pda')}

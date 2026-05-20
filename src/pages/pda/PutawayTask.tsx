@@ -14,11 +14,14 @@ const PutawayTask: FC = () => {
 
   const filtered = activeFilter === '全部'
     ? putawayTasks
-    : putawayTasks.filter(t => t.status === activeFilter);
+    : putawayTasks.filter(t => {
+        if (activeFilter === '待上架') return t.status === '待执行';
+        if (activeFilter === '已完成') return t.status === '已完成';
+        return false;
+      });
 
   const statusColor = (status: string) => {
-    if (status === '待上架') return 'bg-info/15 text-info';
-    if (status === '上架中') return 'bg-warning/15 text-warning';
+    if (status === '待执行') return 'bg-info/15 text-info';
     return 'bg-success/15 text-success';
   };
 
@@ -46,13 +49,13 @@ const PutawayTask: FC = () => {
         {filtered.map((task) => (
           <button
             key={task.taskNo}
-            onClick={() => navigate('/pda/putaway/scan')}
+            onClick={() => navigate('/pda/putaway/scan', { state: { taskNo: task.taskNo } })}
             className="w-full rounded-lg bg-white p-3 text-left transition-all active:scale-[0.98] active:bg-info/10"
           >
             <div className="flex items-center justify-between">
               <span className="font-data text-sm font-semibold text-info">{task.taskNo}</span>
               <span className={cn('rounded px-2 py-0.5 text-[11px] font-bold', statusColor(task.status))}>
-                {task.status}
+                {task.status === '待执行' ? '待上架' : task.status}
               </span>
             </div>
             <div className="mt-1.5 text-xs text-text-primary">{task.materialName}</div>

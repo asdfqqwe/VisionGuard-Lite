@@ -11,24 +11,26 @@ import {
   HandHelping,
   Fingerprint,
   Calendar,
+  RotateCcw,
   Settings,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const mainEntries = [
-  { icon: Package, title: '收货', subtitle: '扫码/预约', path: '/receive/scan' },
-  { icon: ArrowUpToLine, title: '上架', subtitle: '任务/执行', path: '/putaway/task' },
-  { icon: ArrowDownToLine, title: '拣货', subtitle: '任务/扫描', path: '/pick/task' },
-  { icon: ClipboardCheck, title: '巡检', subtitle: '执行/记录', path: '/inspect/task' },
+  { icon: Package, title: '收货', subtitle: '扫码/预约', path: '/pda/receive/scan' },
+  { icon: ArrowUpToLine, title: '上架', subtitle: '任务/执行', path: '/pda/putaway/task' },
+  { icon: ArrowDownToLine, title: '拣货', subtitle: '任务/扫描', path: '/pda/pick/task' },
+  { icon: ClipboardCheck, title: '巡检', subtitle: '执行/记录', path: '/pda/inspect/task' },
 ];
 
 const quickTools = [
-  { icon: Search, label: '盘点', path: '/recount' },
-  { icon: AlertTriangle, label: '异常', path: '/exceptions' },
-  { icon: HandHelping, label: '移交', path: '/problem/handover' },
-  { icon: Fingerprint, label: '溯源', path: '/trace/verify' },
-  { icon: Calendar, label: '预约', path: '/receive/appointment' },
-  { icon: Settings, label: '设置', path: '/mine' },
+  { icon: Search, label: '盘点', path: '/pda/recount/task' },
+  { icon: AlertTriangle, label: '异常', path: '/pda/exceptions' },
+  { icon: HandHelping, label: '移交', path: '/pda/problem/handover' },
+  { icon: Fingerprint, label: '溯源', path: '/pda/trace/verify' },
+  { icon: Calendar, label: '预约', path: '/pda/receive/appointment' },
+  { icon: RotateCcw, label: '退料', path: '/pda/return/scan' },
+  { icon: Settings, label: '设置', path: '/pda/mine' },
 ];
 
 const PDHome: FC = () => {

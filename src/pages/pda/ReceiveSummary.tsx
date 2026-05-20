@@ -1,8 +1,10 @@
 import type { FC } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { deliveryOrderPO007 } from '@/data/mockData';
 import { cn } from '@/lib/utils';
 
 const ReceiveSummary: FC = () => {
+  const navigate = useNavigate();
   const order = deliveryOrderPO007;
   const passedItems = order.items.filter(i => i.status === '通过');
   const anomalyItems = order.items.filter(i => i.status !== '通过');
@@ -83,7 +85,10 @@ const ReceiveSummary: FC = () => {
 
       {/* Bottom CTA */}
       <div className="mt-6">
-        <button className={cn('h-11 w-full rounded-md bg-accent-gradient text-sm font-semibold text-white shadow', 'active:scale-[0.98]')}>
+        <button
+          onClick={() => navigate('/pda/putaway/task', { state: { fromReceive: true } })}
+          className={cn('h-11 w-full rounded-md bg-accent-gradient text-sm font-semibold text-white shadow', 'active:scale-[0.98]')}
+        >
           部分确认签收（合格项）
         </button>
       </div>

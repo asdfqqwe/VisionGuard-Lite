@@ -1,10 +1,25 @@
 import type { FC } from 'react';
 import { useState } from 'react';
-import { ScanLine, MapPin } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { CheckCircle, MapPin, ScanLine } from 'lucide-react';
+import { pickTasks } from '@/data/mockData';
 import { cn } from '@/lib/utils';
 
 const PickScan: FC = () => {
-  const [scanned, setScanned] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const taskNo = (location.state as { taskNo?: string } | null)?.taskNo || 'PK-001';
+  const task = pickTasks.find((item) => item.taskNo === taskNo) || pickTasks[0];
+  const [pickedCount, setPickedCount] = useState(Math.max(0, task.quantity - 1));
+  const done = pickedCount >= task.quantity;
+
+  const handleConfirm = () => {
+    if (done) {
+      navigate('/pda/pick/task');
+      return;
+    }
+    setPickedCount((count) => Math.min(task.quantity, count + 1));
+  };
 
   return (
     <div className="h-full bg-primary px-4 pt-3 pb-4">
@@ -31,21 +46,21 @@ const PickScan: FC = () => {
         </svg>
         <div className="absolute top-1.5 right-2 flex items-center gap-1 rounded bg-primary/80 px-2 py-0.5">
           <MapPin className="h-3 w-3 text-info" />
-          <span className="text-[10px] text-text-primary">当前：A-01-03</span>
+          <span className="text-[10px] text-text-primary">当前：{task.sourceLocation}</span>
         </div>
       </div>
 
       {/* Current Item Card */}
       <div className="mt-4 rounded-lg bg-white p-3">
-        <h3 className="text-base font-semibold text-text-primary">前轮轴承</h3>
+        <h3 className="text-base font-semibold text-text-primary">{task.materialName}</h3>
         <div className="mt-2 flex items-center justify-between">
           <div>
-            <span className="text-[11px] text-text-muted">目标货位</span>
-            <div className="font-data text-base font-semibold text-info">B-07-03</div>
+            <span className="text-[11px] text-text-muted">来源货位</span>
+            <div className="font-data text-base font-semibold text-info">{task.sourceLocation}</div>
           </div>
           <div className="text-right">
             <span className="text-[11px] text-text-muted">数量</span>
-            <div className="font-data text-base font-semibold text-text-primary">×3</div>
+            <div className="font-data text-base font-semibold text-text-primary">×{task.quantity}{task.unit}</div>
           </div>
         </div>
       </div>
@@ -64,21 +79,31 @@ const PickScan: FC = () => {
 
       {/* Progress */}
       <div className="mt-4 flex items-center gap-2">
-        <span className="text-[11px] text-text-muted">进度 2/5</span>
+        <span className="text-[11px] text-text-muted">进度 {pickedCount}/{task.quantity}</span>
         <div className="h-2 flex-1 rounded-full bg-primary">
-          <div className="h-full rounded-full bg-success" style={{ width: '40%' }} />
+          <div className="h-full rounded-full bg-success" style={{ width: `${(pickedCount / task.quantity) * 100}%` }} />
         </div>
       </div>
+
+      {done && (
+        <div className="mt-4 flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 p-3">
+          <CheckCircle className="h-5 w-5 text-success" />
+          <div>
+            <div className="text-xs font-semibold text-success">拣货完成</div>
+            <div className="mt-0.5 text-[11px] text-text-secondary">已送往 Station 出库复核</div>
+          </div>
+        </div>
+      )}
 
       {/* Bottom Actions */}
       <div className="mt-6">
         <button
-          onClick={() => setScanned(!scanned)}
+          onClick={handleConfirm}
           className={cn('h-11 w-full rounded-md text-sm font-semibold text-white',
-            scanned ? 'bg-success' : 'bg-accent-gradient'
+            done ? 'bg-success' : 'bg-accent-gradient'
           )}
         >
-          {scanned ? '已确认' : '确认拣货'}
+          {done ? '返回任务列表' : '确认拣货'}
         </button>
       </div>
     </div>

@@ -92,8 +92,6 @@ export default function Home() {
           className="absolute inset-0"
           style={{
             background:
-              'radial-gradient(circle at 75% 35%, rgba(59,130,246,0.12), transparent 36%),' +
-              'radial-gradient(circle at 92% 60%, rgba(234,179,8,0.06), transparent 26%),' +
               'linear-gradient(180deg, #F8FAFC 0%, #EEF4FB 60%, #F1F5F9 100%)',
           }}
           aria-hidden
@@ -116,10 +114,25 @@ export default function Home() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.1 }}
-              className="text-[34px] font-bold tracking-tight text-[#0F172A] md:text-[38px]"
+              className="text-[34px] font-bold tracking-tight text-[#0B1F3A] md:text-[38px]"
             >
-              <span className="text-accent">智见</span>
-              <span> · 仓储质检AI系统</span>
+              <span className="inline-flex items-baseline gap-2">
+                <span
+                  className="font-black text-[#1273EA]"
+                  style={{
+                    fontFamily: '"SF Pro Display", "PingFang SC", "Noto Sans SC", sans-serif',
+                    letterSpacing: '0.01em',
+                    textShadow: '0 8px 22px rgba(18,115,234,0.14)',
+                  }}
+                >
+                  智见
+                </span>
+                <span className="relative -top-0.5 rounded-md border border-blue-200/80 bg-blue-50/80 px-1.5 py-0.5 text-[0.55em] font-extrabold tracking-[0.08em] text-[#2563EB] shadow-[0_8px_18px_rgba(37,99,235,0.10)]">
+                  Lite
+                </span>
+              </span>
+              <span className="mx-2 text-[#94A3B8]">·</span>
+              <span className="font-extrabold text-[#081B33]">仓储质检AI系统</span>
             </motion.h1>
             <motion.p
               initial={{ opacity: 0, y: 20 }}
@@ -166,23 +179,23 @@ export default function Home() {
             </div>
 
             {/* 4 个特性 */}
-            <div className="mt-5 grid grid-cols-2 gap-x-5 gap-y-2.5 sm:grid-cols-4">
+            <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2">
               {HERO_FEATURES.map((f, i) => (
                 <motion.div
                   key={f.title}
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4, delay: 0.55 + i * 0.06 }}
-                  className="flex items-start gap-2"
+                  className="flex min-h-[58px] items-start gap-2.5 rounded-lg border border-blue-100/65 bg-white/38 px-3 py-2.5 shadow-[0_10px_24px_rgba(59,130,246,0.045)] backdrop-blur-sm"
                 >
-                  <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-info/10 text-info">
+                  <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-blue-50/90 text-[#2F80ED] shadow-inner">
                     {f.icon}
                   </span>
                   <div className="min-w-0">
-                    <div className="text-[13px] font-medium text-text-primary">
+                    <div className="text-[13px] font-semibold text-[#16345C]">
                       {f.title}
                     </div>
-                    <div className="text-[11px] text-text-muted">{f.desc}</div>
+                    <div className="mt-0.5 text-[11px] leading-4 text-[#7B8FA8]">{f.desc}</div>
                   </div>
                 </motion.div>
               ))}

@@ -86,7 +86,7 @@ const ExceptionDetail: FC = () => {
       {/* Bottom CTA */}
       <div className="mt-4">
         <button
-          onClick={() => navigate('/exceptions')}
+          onClick={() => navigate('/pda/exceptions')}
           className="h-11 w-full rounded-md border border-border bg-white text-sm text-text-secondary"
         >
           返回异常列表

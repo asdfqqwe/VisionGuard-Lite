@@ -86,7 +86,9 @@ const ReceiveScan: FC = () => {
 
       {/* Bottom CTA */}
       <div className="mt-6">
-        <button className={cn('h-11 w-full rounded-md bg-accent-gradient text-sm font-semibold text-white shadow', 'active:scale-[0.98]')}
+        <button
+          onClick={() => navigate('/pda/receive/detail', { state: { orderNo: 'PO-007' } })}
+          className={cn('h-11 w-full rounded-md bg-accent-gradient text-sm font-semibold text-white shadow', 'active:scale-[0.98]')}
         >
           开始扫码
         </button>

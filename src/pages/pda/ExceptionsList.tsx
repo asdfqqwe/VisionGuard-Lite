@@ -95,13 +95,13 @@ const ExceptionsList: FC = () => {
                   </div>
                   <div className="mt-2 flex gap-2">
                     <button
-                      onClick={() => navigate(`/exceptions/${evt.eventNo}`)}
+                      onClick={() => navigate(`/pda/exceptions/${evt.eventNo}`)}
                       className="flex h-9 flex-1 items-center justify-center rounded bg-info text-xs font-semibold text-white"
                     >
                       查看详情
                     </button>
                     <button
-                      onClick={() => navigate(`/exceptions/result/${evt.eventNo}`)}
+                      onClick={() => navigate(`/pda/exceptions/result/${evt.eventNo}`)}
                       className="flex h-9 flex-1 items-center justify-center rounded bg-warning text-xs font-semibold text-white"
                     >
                       快速上报

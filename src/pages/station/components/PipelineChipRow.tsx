@@ -1,7 +1,7 @@
 /**
  * 底部 AI 检测流水线 7 chip 横排组件。
  * 把原 StationIdle 内嵌的 AICapability 抽到这里，并扩展为 4 态：
- * idle / loading / ready / danger
+ * idle / loading / ready / warning / danger
  */
 
 import type { FC, ReactNode } from 'react';
@@ -35,6 +35,11 @@ const STATE_CLASSES: Record<PipelineState, { wrapper: string; icon: string; text
     icon: 'text-success',
     text: 'text-text-primary',
   },
+  warning: {
+    wrapper: 'border-l2-badge/50 bg-l2-badge/15',
+    icon: 'text-l2-badge',
+    text: 'text-l2-badge',
+  },
   danger: {
     wrapper: 'border-danger/50 bg-danger/15',
     icon: 'text-danger',
@@ -58,6 +63,7 @@ const PipelineChip: FC<PipelineChipProps> = ({ name, icon, state }) => {
         {state === 'idle' && <span className="h-1.5 w-1.5 rounded-full bg-text-muted/60" />}
         {state === 'loading' && <Loader2 className="h-3 w-3 animate-spin text-info" />}
         {state === 'ready' && <Check className="h-3 w-3 text-success" />}
+        {state === 'warning' && <span className="h-2 w-2 rounded-full bg-l2-badge" />}
         {state === 'danger' && <X className="h-3 w-3 text-danger" />}
       </span>
     </div>

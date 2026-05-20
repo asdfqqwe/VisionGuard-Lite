@@ -75,7 +75,7 @@ const CameraPreview: FC<CameraPreviewProps> = ({
     className={cn(
       'relative flex min-h-0 flex-1 overflow-hidden rounded-lg border bg-[#0F172A] transition-shadow',
       alertPulse
-        ? 'border-l1-badge shadow-[0_0_0_3px_rgba(220,38,38,0.45)] animate-pulse'
+        ? 'border-l1-badge shadow-[0_0_0_2px_rgba(220,38,38,0.28)]'
         : 'border-border',
     )}
   >
@@ -84,7 +84,7 @@ const CameraPreview: FC<CameraPreviewProps> = ({
       <img
         src={imageUrl}
         alt={label}
-        className="h-full w-full object-cover opacity-90"
+        className="h-full w-full object-contain opacity-90"
         onError={(e) => {
           (e.currentTarget as HTMLImageElement).style.opacity = '0';
         }}
@@ -289,12 +289,15 @@ const StationIdle: FC = () => {
   const { dashboardData, agentEvents } = useData();
   const player = useDetectionPlayer(detectionScript);
 
-  // 演示中态：cursor 即"当前正在/即将处理"那件
+  // 演示中态：cursor 指向下一件待检，currentItem 保留当前展示结果
   const isPlaying = player.phase === 'detecting' || player.phase === 'awaitingConfirm';
+  const isAwaitingL2Action = player.phase === 'awaitingL2Action';
+  const isReviewingPass = player.phase === 'reviewing';
   const isFinished = player.phase === 'finished';
+  const hasDetectionResult = player.currentItem != null;
 
-  // 静态摘要在 idle 且 cursor 0 才显示，避免演示完之后又跳回去
-  const showStaticSummary = player.phase === 'idle' && player.cursor === 0;
+  // 静态摘要仅在尚未开始检测时显示，检测后右侧保留当前图片对应的 Agent 结论
+  const showStaticSummary = !hasDetectionResult && player.phase === 'idle';
 
   const agentSummaries: AgentSummaryItemProps[] = [
     {
@@ -315,8 +318,10 @@ const StationIdle: FC = () => {
     },
   ];
 
-  // 当前栈：cursor 起始的剩余件
+  // 当前栈：cursor 起始的剩余待检件
   const remainingScript = detectionScript.slice(player.cursor);
+  const completedItem =
+    player.displayIndex != null ? detectionScript[player.displayIndex] : null;
 
   // 主按钮文案与颜色
   const renderMainButton = () => {
@@ -327,6 +332,25 @@ const StationIdle: FC = () => {
           <ShieldAlert className="h-4 w-4" />
           等待人工确认拦截
         </div>
+      );
+    }
+    if (player.phase === 'awaitingL2Action') {
+      return (
+        <div className="flex shrink-0 items-center gap-1.5 rounded-md bg-l2-badge/15 px-3 py-2 text-xs font-medium text-l2-badge">
+          <AlertTriangle className="h-4 w-4" />
+          等待质检员处理
+        </div>
+      );
+    }
+    if (player.phase === 'reviewing') {
+      return (
+        <button
+          onClick={player.approvePass}
+          className="flex shrink-0 items-center gap-1.5 rounded-md bg-success px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-success/90"
+        >
+          <PackageCheck className="h-4 w-4" />
+          确认通过
+        </button>
       );
     }
     if (player.phase === 'detecting') {
@@ -358,13 +382,14 @@ const StationIdle: FC = () => {
         className="flex shrink-0 items-center gap-1.5 rounded-md bg-info px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-info/90"
       >
         <PlayCircle className="h-4 w-4" />
-        {player.cursor === 0 ? '开始检测' : '下一件'}
+        {hasDetectionResult ? '检测下一件' : '开始检测'}
       </button>
     );
   };
 
   // NEXT banner 物品
-  const bannerItem = player.currentItem ?? remainingScript[0] ?? detectionScript[0];
+  const nextItem = remainingScript[0] ?? null;
+  const bannerItem = isPlaying ? player.currentItem : nextItem;
 
   // Pending agent events
   const pendingEvents = agentEvents.filter((e) => e.status === '待人工确认');
@@ -517,6 +542,10 @@ const StationIdle: FC = () => {
             'flex items-center gap-3 rounded-lg border px-3 py-2 transition-colors',
             isPlaying
               ? 'border-info bg-info/10'
+              : isAwaitingL2Action
+                ? 'border-l2-badge/50 bg-l2-badge/10'
+                : isReviewingPass
+                  ? 'border-success/50 bg-success/10'
               : isFinished
                 ? 'border-success/40 bg-success/10'
                 : 'border-info/40 bg-gradient-to-r from-info/15 to-info/5',
@@ -530,6 +559,8 @@ const StationIdle: FC = () => {
           >
             {isPlaying ? (
               <Loader2 className="h-5 w-5 animate-spin text-info" />
+            ) : isAwaitingL2Action ? (
+              <AlertTriangle className="h-5 w-5 text-l2-badge" />
             ) : isFinished ? (
               <PackageCheck className="h-5 w-5 text-success" />
             ) : (
@@ -548,7 +579,7 @@ const StationIdle: FC = () => {
                   {player.todayStats.warning - 1} · 拦截 {player.todayStats.intercept - 3}
                 </p>
               </>
-            ) : (
+            ) : bannerItem ? (
               <>
                 <div className="flex items-center gap-2">
                   <span
@@ -557,10 +588,16 @@ const StationIdle: FC = () => {
                       isPlaying ? 'bg-info animate-pulse' : 'bg-info',
                     )}
                   >
-                    {isPlaying ? '检测中' : 'NEXT'}
+                    {isPlaying ? '检测中' : isAwaitingL2Action ? 'L2' : isReviewingPass ? '通过' : 'NEXT'}
                   </span>
                   <span className="text-xs font-semibold text-text-primary">
-                    {isPlaying ? '正在分析' : '下一件待检'}
+                    {isPlaying
+                      ? '正在分析'
+                      : isAwaitingL2Action
+                        ? '等待人工处理'
+                        : isReviewingPass
+                          ? '等待确认通过'
+                          : '下一件待检'}
                   </span>
                   <span className="font-mono text-[11px] text-text-muted">
                     {bannerItem.orderNo}
@@ -582,6 +619,8 @@ const StationIdle: FC = () => {
                   </span>
                 </div>
               </>
+            ) : (
+              <p className="text-xs font-semibold text-success">队列已清空</p>
             )}
           </div>
 
@@ -602,7 +641,7 @@ const StationIdle: FC = () => {
           cameraId="CAM-01"
           label={
             player.currentItem
-              ? `主相机 · 正在检测 ${player.currentItem.materialName}`
+              ? `${isPlaying ? '主相机 · 正在检测' : '主相机 · 最近结果'} ${player.currentItem.materialName}`
               : '主相机 · 顶视点数 + 标签 + OCR'
           }
           resolution="1920×1080"
@@ -615,7 +654,7 @@ const StationIdle: FC = () => {
           overlayBoxes={player.currentItem?.boxes}
           revealedBoxIds={player.revealedBoxIds}
           alertPulse={player.phase === 'awaitingConfirm'}
-          scanning={isPlaying}
+          scanning={player.phase === 'detecting'}
         />
 
         {/* Zone C: AI pipeline ready bar */}
@@ -669,23 +708,43 @@ const StationIdle: FC = () => {
             )}
           </div>
           <div className="mt-1.5 flex gap-2 overflow-x-auto">
-            {isFinished ? (
+            {isFinished && !completedItem ? (
               <div className="flex w-full items-center justify-center py-3 text-[11px] text-text-muted">
                 所有任务已完成
               </div>
             ) : (
-              remainingScript.map((it, i) => (
-                <QueueItem
-                  key={it.orderNo}
-                  orderNo={it.orderNo}
-                  materialName={it.materialName}
-                  qty={it.qty}
-                  category={it.category}
-                  imageUrl={it.thumbUrl}
-                  positionInQueue={i}
-                  state={i === 0 && isPlaying ? 'detecting' : 'pending'}
-                />
-              ))
+              <>
+                {completedItem && !isPlaying && (
+                  <QueueItem
+                    key={`done-${completedItem.orderNo}`}
+                    orderNo={completedItem.orderNo}
+                    materialName={completedItem.materialName}
+                    qty={completedItem.qty}
+                    category={completedItem.category}
+                    imageUrl={completedItem.thumbUrl}
+                    positionInQueue={0}
+                    state="done"
+                    outcome={completedItem.outcome}
+                  />
+                )}
+                {remainingScript.map((it, i) => (
+                  <QueueItem
+                    key={it.orderNo}
+                    orderNo={it.orderNo}
+                    materialName={it.materialName}
+                    qty={it.qty}
+                    category={it.category}
+                    imageUrl={it.thumbUrl}
+                    positionInQueue={completedItem && !isPlaying ? i + 1 : i}
+                    state={i === 0 && player.phase === 'detecting' ? 'detecting' : 'pending'}
+                  />
+                ))}
+                {isFinished && (
+                  <div className="flex min-w-[180px] items-center justify-center py-3 text-[11px] text-text-muted">
+                    所有任务已完成
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -781,6 +840,11 @@ const StationIdle: FC = () => {
                 workOrderMessage={player.workOrderMessage}
                 totalCount={detectionScript.length}
                 cursor={player.cursor}
+                onApprovePass={player.approvePass}
+                onAssignL2Review={player.assignL2Review}
+                onHoldL2Review={player.holdL2ForReview}
+                onConfirmL1Block={player.confirmL1Block}
+                onCreateWorkOrder={player.createWorkOrder}
               />
             </motion.div>
           )}
@@ -791,8 +855,11 @@ const StationIdle: FC = () => {
       <FullScreenAlert
         visible={player.alertOpen}
         severity="danger-deep"
-        title="L1 强拦截 · 多模态异常"
-        message="视觉变色 + 重力 +0.3kg + 红外 +12°C + VOC 超标，疑似危险品泄漏"
+        title={player.currentItem?.summary.title ?? 'L1 强拦截 · 多模态异常'}
+        message={
+          player.currentItem?.agentSuggestion ??
+          '视觉变色 + 重力 +0.3kg + 红外 +12°C + VOC 超标，疑似危险品泄漏'
+        }
         showClose={false}
         actionButtons={
           <>
@@ -806,7 +873,7 @@ const StationIdle: FC = () => {
               onClick={player.createWorkOrder}
               className="rounded border border-white/50 bg-transparent px-4 py-2 text-sm text-white transition-colors hover:bg-white/10"
             >
-              创建工单（WO-005 + IQ-005 + CL-002）
+              创建并飞书指派王强 + 陈璐
             </button>
           </>
         }

@@ -1,21 +1,25 @@
 import type { FC } from 'react';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Camera, Minus, Plus } from 'lucide-react';
+import { inspectionTasks } from '@/data/mockData';
 import { cn } from '@/lib/utils';
 
 const InspectCheck: FC = () => {
   const navigate = useNavigate();
-  const [count, setCount] = useState(0);
+  const location = useLocation();
+  const taskNo = (location.state as { taskNo?: string } | null)?.taskNo || 'INS-002';
+  const task = inspectionTasks.find((item) => item.taskNo === taskNo) || inspectionTasks[1] || inspectionTasks[0];
+  const [count, setCount] = useState(task.actualQuantity ?? 0);
   const [anomaly, setAnomaly] = useState(false);
   const [anomalyType, setAnomalyType] = useState('');
 
-  const systemQty = 12;
+  const systemQty = task.systemQuantity;
   const diff = count - systemQty;
 
   const handleSubmit = () => {
     if (diff !== 0) {
-      navigate('/pda/recount');
+      navigate('/pda/recount', { state: { taskNo: task.taskNo, actualQuantity: count } });
     } else {
       navigate('/pda');
     }
@@ -25,8 +29,8 @@ const InspectCheck: FC = () => {
     <div className="h-full bg-primary px-4 pt-3 pb-4">
       {/* Inspect Info Card */}
       <div className="rounded-lg bg-white p-3">
-        <div className="text-sm font-semibold text-text-primary">巡检区域：A-03-05</div>
-        <div className="mt-1 text-xs text-text-primary">物资：矿泉水</div>
+        <div className="text-sm font-semibold text-text-primary">巡检区域：{task.location}</div>
+        <div className="mt-1 text-xs text-text-primary">物资：{task.materialName}</div>
         <div className="mt-1 text-xs text-text-muted">检查货品摆放是否整齐，标签是否完好</div>
       </div>
 

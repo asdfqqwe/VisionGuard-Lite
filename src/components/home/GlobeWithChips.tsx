@@ -20,10 +20,10 @@ import { WarehouseGlobeBackground } from './WarehouseGlobeBackground';
 type Tone = 'blue' | 'gold' | 'green' | 'gray';
 
 const toneClassMap: Record<Tone, string> = {
-  blue: 'border-blue-200/70 bg-blue-50/85 text-blue-700',
-  gold: 'border-yellow-200/80 bg-yellow-50/85 text-yellow-700',
-  green: 'border-emerald-200/70 bg-emerald-50/85 text-emerald-700',
-  gray: 'border-slate-200/80 bg-white/85 text-slate-600',
+  blue: 'border-blue-200/75 bg-white/78 text-blue-700 hover:border-blue-300/90 hover:bg-white/92 hover:shadow-blue-200/55',
+  gold: 'border-amber-200/80 bg-amber-50/78 text-amber-700 hover:border-amber-300/90 hover:bg-amber-50/95 hover:shadow-amber-200/60',
+  green: 'border-emerald-200/75 bg-white/78 text-emerald-700 hover:border-emerald-300/90 hover:bg-white/92 hover:shadow-emerald-200/50',
+  gray: 'border-slate-200/75 bg-white/78 text-slate-600 hover:border-slate-300/90 hover:bg-white/92 hover:shadow-slate-200/50',
 };
 
 interface ChipDef {
@@ -42,6 +42,12 @@ const CHIPS: ChipDef[] = [
   { pos: 'right-[-2%] top-[34%]', label: '出库放行', icon: <Truck className="h-3.5 w-3.5" />, tone: 'blue' },
   { pos: 'right-[2%] top-[58%]', label: '问题件隔离', icon: <ShieldAlert className="h-3.5 w-3.5" />, tone: 'gold' },
   { pos: 'right-[14%] top-[82%]', label: '索赔协同', icon: <FileWarning className="h-3.5 w-3.5" />, tone: 'gold' },
+];
+
+const SPARKS = [
+  'left-[23%] top-[16%] h-1.5 w-1.5 bg-blue-300/80 shadow-[0_0_12px_rgba(96,165,250,0.8)]',
+  'right-[27%] bottom-[24%] h-1.5 w-1.5 bg-amber-300/90 shadow-[0_0_14px_rgba(251,191,36,0.8)]',
+  'left-[36%] bottom-[18%] h-1 w-1 bg-white shadow-[0_0_10px_rgba(147,197,253,0.9)]',
 ];
 
 export const GlobeWithChips: FC = () => {
@@ -70,29 +76,48 @@ export const GlobeWithChips: FC = () => {
         className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
         style={{ width: 'min(100%, 540px)', aspectRatio: '1 / 1' }}
       >
-        {/* 球外柔光 halo */}
+        {/* 底部投影,用来托起球体的立体感。 */}
         <div
-          className="absolute inset-0 rounded-full"
+          className="absolute left-1/2 bottom-[4%] h-[18%] w-[62%] -translate-x-1/2 rounded-full"
           style={{
             background:
-              'radial-gradient(circle at 50% 50%, rgba(59,130,246,0.18) 0%, rgba(147,197,253,0.12) 42%, rgba(241,245,249,0) 70%)',
-            filter: 'blur(12px)',
+              'radial-gradient(ellipse at center, rgba(86,126,190,0.24) 0%, rgba(126,167,224,0.13) 42%, rgba(148,163,184,0) 72%)',
+            filter: 'blur(16px)',
           }}
           aria-hidden
         />
+        <div
+          className="absolute inset-[7%] rounded-full border border-white/70 shadow-[inset_0_0_30px_rgba(255,255,255,0.74),inset_0_-28px_42px_rgba(96,165,250,0.13)]"
+          aria-hidden
+        />
+        <div
+          className="absolute inset-[12%] rounded-full"
+          style={{
+            background:
+              'linear-gradient(138deg, rgba(255,255,255,0.56) 0%, rgba(255,255,255,0.12) 16%, rgba(255,255,255,0) 34%)',
+          }}
+          aria-hidden
+        />
+        {SPARKS.map((spark) => (
+          <span
+            key={spark}
+            className={`absolute rounded-full ${spark}`}
+            aria-hidden
+          />
+        ))}
         {size.w > 0 && (
           <WarehouseGlobeBackground width={size.w} height={size.h} />
         )}
       </div>
 
       {/* 业务胶囊 */}
-      <div className="pointer-events-none absolute inset-0">
+      <div className="absolute inset-0">
         {CHIPS.map((c) => (
           <div
             key={c.label}
-            className={`absolute ${c.pos} flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] leading-none whitespace-nowrap shadow-[0_4px_14px_rgba(15,23,42,0.10)] backdrop-blur-md ${toneClassMap[c.tone]}`}
+            className={`group absolute ${c.pos} pointer-events-auto z-10 flex origin-center items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold leading-none whitespace-nowrap shadow-[0_8px_22px_rgba(59,130,246,0.10)] backdrop-blur-xl transition-[transform,box-shadow,background-color,border-color] duration-200 ease-out hover:-translate-y-0.5 hover:scale-[1.08] hover:shadow-[0_14px_30px_rgba(59,130,246,0.16)] ${toneClassMap[c.tone]}`}
           >
-            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-white/80">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white/85 shadow-inner transition-transform duration-200 ease-out group-hover:scale-105 [&>svg]:h-4 [&>svg]:w-4">
               {c.icon}
             </span>
             <span>{c.label}</span>

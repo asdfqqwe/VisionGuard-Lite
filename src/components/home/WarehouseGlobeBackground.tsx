@@ -13,32 +13,33 @@ import { MeshPhongMaterial, Color } from 'three';
  *  - 飞线低弧度贴球面 + dash 流动
  *  - 节点带涟漪辐射
  *
- * 业务语义: 供应商 → 上海主仓 → 工厂/出库/隔离/索赔
+ * 业务语义: 全球供应节点 → 中国主仓 → 区域质检与处置节点
  */
 
 // ─── 业务节点(真实经纬度) ───
-const HUB = { lat: 31.23, lng: 121.47, name: '智见主仓' };
+const HUB = { lat: 31.23, lng: 121.47, name: '中国主仓' };
 
 const SUPPLIERS = [
+  { lat: 51.51, lng: -0.13, name: '英国供应商' },
+  { lat: 43.65, lng: -79.38, name: '加拿大供应商' },
+  { lat: 28.61, lng: 77.21, name: '印度供应商' },
+  { lat: 1.35, lng: 103.82, name: '新加坡供应商' },
+  { lat: 35.69, lng: 139.69, name: '日本供应商' },
   { lat: 23.13, lng: 113.26, name: '华南供应商' },
   { lat: 39.9, lng: 116.41, name: '华北供应商' },
-  { lat: 30.67, lng: 104.06, name: '西南供应商' },
-  { lat: 35.69, lng: 139.69, name: '日本供应商' },
-  { lat: 1.35, lng: 103.82, name: '东南亚供应商' },
 ];
 
 const DOWNSTREAMS_NORMAL = [
-  { lat: 30.59, lng: 114.31, name: '总装工厂' },
-  { lat: 30.29, lng: 120.16, name: '出库放行' },
+  { lat: 22.32, lng: 114.17, name: '香港复核' },
+  { lat: 13.75, lng: 100.5, name: '泰国出库' },
+  { lat: 37.57, lng: 126.98, name: '韩国工厂' },
 ];
 
 const DOWNSTREAMS_GOLD = [
-  { lat: 32.06, lng: 118.78, name: '问题件隔离' },
-  { lat: 39.13, lng: 117.2, name: '索赔协同' },
+  { lat: 19.08, lng: 72.88, name: '印度问题件隔离' },
+  { lat: 51.51, lng: -0.13, name: '英国索赔协同' },
+  { lat: 49.28, lng: -123.12, name: '加拿大异常协同' },
 ];
-
-const COLOR_BLUE = '#3B82F6';
-const COLOR_GOLD = '#EAB308';
 
 interface WarehouseGlobeBackgroundProps {
   width?: number;
@@ -66,42 +67,52 @@ export function WarehouseGlobeBackground({
       .catch((err) => console.warn('[WarehouseGlobe] load world.json failed', err));
   }, []);
 
-  // 球面材质:冷灰蓝紫调海洋(参考图,接近 #C8D2E2)
+  // 球面材质:浅冰蓝玻璃感,让陆地和飞线像浮在球体内部。
   const globeMaterial = useMemo(() => {
     const m = new MeshPhongMaterial();
-    m.color = new Color('#C8D2E2');
-    m.emissive = new Color('#D6DEEC');
-    m.emissiveIntensity = 0.18;
-    m.shininess = 0.4;
+    m.color = new Color('#DCEAFF');
+    m.emissive = new Color('#C7DCFF');
+    m.emissiveIntensity = 0.34;
+    m.specular = new Color('#FFFFFF');
+    m.shininess = 22;
     m.transparent = true;
-    m.opacity = 1;
+    m.opacity = 0.72;
     return m;
   }, []);
 
   // 飞线
   const arcs = useMemo(() => {
     const blue = [
-      ...SUPPLIERS.map((s) => ({
+      ...SUPPLIERS.map((s, index) => ({
         startLat: s.lat,
         startLng: s.lng,
         endLat: HUB.lat,
         endLng: HUB.lng,
-        color: COLOR_BLUE,
+        color: ['rgba(124,174,255,0.16)', 'rgba(74,140,255,0.95)', 'rgba(255,255,255,0.72)'],
+        altitude: index < 2 ? 0.2 : 0.13,
+        stroke: index < 2 ? 0.86 : 0.62,
+        dashGap: index < 2 ? 0.72 : 0.95,
       })),
-      ...DOWNSTREAMS_NORMAL.map((d) => ({
+      ...DOWNSTREAMS_NORMAL.map((d, index) => ({
         startLat: HUB.lat,
         startLng: HUB.lng,
         endLat: d.lat,
         endLng: d.lng,
-        color: COLOR_BLUE,
+        color: ['rgba(255,255,255,0.22)', 'rgba(74,140,255,0.86)', 'rgba(124,174,255,0.24)'],
+        altitude: index === 0 ? 0.08 : 0.1,
+        stroke: 0.54,
+        dashGap: 1.1,
       })),
     ];
-    const gold = DOWNSTREAMS_GOLD.map((d) => ({
+    const gold = DOWNSTREAMS_GOLD.map((d, index) => ({
       startLat: HUB.lat,
       startLng: HUB.lng,
       endLat: d.lat,
       endLng: d.lng,
-      color: COLOR_GOLD,
+      color: ['rgba(255,255,255,0.24)', 'rgba(247,184,74,0.95)', 'rgba(255,224,149,0.3)'],
+      altitude: index === 2 ? 0.18 : 0.12,
+      stroke: 0.62,
+      dashGap: 0.86,
     }));
     return [...blue, ...gold];
   }, []);
@@ -109,26 +120,26 @@ export function WarehouseGlobeBackground({
   // 节点辐射涟漪(参考图:中等强度,蓝色明显)
   const rings = useMemo(
     () => [
-      { lat: HUB.lat, lng: HUB.lng, color: COLOR_GOLD, maxR: 4.5, period: 1600 },
+      { lat: HUB.lat, lng: HUB.lng, color: 'rgba(247,184,74,0.46)', maxR: 4.2, period: 1700 },
       ...SUPPLIERS.map((s) => ({
         lat: s.lat,
         lng: s.lng,
-        color: COLOR_BLUE,
-        maxR: 3.2,
+        color: 'rgba(74,140,255,0.38)',
+        maxR: 3,
         period: 2000,
       })),
       ...DOWNSTREAMS_NORMAL.map((d) => ({
         lat: d.lat,
         lng: d.lng,
-        color: COLOR_BLUE,
-        maxR: 3.2,
+        color: 'rgba(74,140,255,0.38)',
+        maxR: 3,
         period: 2000,
       })),
       ...DOWNSTREAMS_GOLD.map((d) => ({
         lat: d.lat,
         lng: d.lng,
-        color: COLOR_GOLD,
-        maxR: 3.6,
+        color: 'rgba(247,184,74,0.42)',
+        maxR: 3.4,
         period: 1800,
       })),
     ],
@@ -138,10 +149,10 @@ export function WarehouseGlobeBackground({
   // 节点亮点 — 比之前更大更醒目
   const points = useMemo(
     () => [
-      { lat: HUB.lat, lng: HUB.lng, color: COLOR_GOLD, radius: 0.55 },
-      ...SUPPLIERS.map((s) => ({ ...s, color: COLOR_BLUE, radius: 0.4 })),
-      ...DOWNSTREAMS_NORMAL.map((d) => ({ ...d, color: COLOR_BLUE, radius: 0.4 })),
-      ...DOWNSTREAMS_GOLD.map((d) => ({ ...d, color: COLOR_GOLD, radius: 0.45 })),
+      { lat: HUB.lat, lng: HUB.lng, color: '#FFE08B', radius: 0.36 },
+      ...SUPPLIERS.map((s) => ({ ...s, color: '#6AA6FF', radius: 0.26 })),
+      ...DOWNSTREAMS_NORMAL.map((d) => ({ ...d, color: '#6AA6FF', radius: 0.26 })),
+      ...DOWNSTREAMS_GOLD.map((d) => ({ ...d, color: '#FFD16A', radius: 0.3 })),
     ],
     []
   );
@@ -155,10 +166,10 @@ export function WarehouseGlobeBackground({
       window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     const controls = g.controls();
     controls.autoRotate = true;
-    controls.autoRotateSpeed = reduceMotion ? 0.25 : 0.55;
+    controls.autoRotateSpeed = reduceMotion ? 0.32 : 0.9;
     controls.enableZoom = false;
     controls.enablePan = false;
-    g.pointOfView({ lat: 22, lng: 110, altitude: 2.2 }, 0);
+    g.pointOfView({ lat: 24, lng: -62, altitude: 2.42 }, 0);
   }, [countries]);
 
   return (
@@ -174,30 +185,31 @@ export function WarehouseGlobeBackground({
       showGraticules={true}
       // 大气层
       showAtmosphere={true}
-      atmosphereColor="#7AAEEC"
-      atmosphereAltitude={0.22}
-      // 国家边界 — 冷灰蓝紫陆地(参考图调,#9AA8C4 量级,带厚度)
+      atmosphereColor="#D7E8FF"
+      atmosphereAltitude={0.08}
+      // 国家边界:低饱和蓝白,保留半透明的浮雕感。
       polygonsData={countries}
       polygonGeoJsonGeometry={(d: object) => (d as CountryFeature).geometry as never}
-      polygonAltitude={0.03}
-      polygonCapColor={() => 'rgba(154,168,196,0.95)'}
-      polygonSideColor={() => 'rgba(108,124,158,0.55)'}
-      polygonStrokeColor={() => 'rgba(125,143,180,0.45)'}
-      // 飞线 — 弧度更明显,加粗,描边亮色
+      polygonAltitude={0.018}
+      polygonCapColor={() => 'rgba(176,202,241,0.58)'}
+      polygonSideColor={() => 'rgba(122,157,214,0.22)'}
+      polygonStrokeColor={() => 'rgba(93,139,214,0.22)'}
+      // 飞线:更细、更亮,像原型图里的浅色轨迹。
       arcsData={arcs}
-      arcColor={(d: object) => (d as { color: string }).color}
-      arcAltitude={0.28}
-      arcStroke={0.6}
-      arcDashLength={0.35}
-      arcDashGap={1.2}
-      arcDashAnimateTime={1800}
-      arcAltitudeAutoScale={0.5}
-      // 节点亮点 — 加大尺寸更醒目
+      arcColor={(d: object) => (d as { color: string[] }).color}
+      arcAltitude={(d: object) => (d as { altitude: number }).altitude}
+      arcStroke={(d: object) => (d as { stroke: number }).stroke}
+      arcCurveResolution={72}
+      arcDashLength={0.76}
+      arcDashGap={(d: object) => (d as { dashGap: number }).dashGap}
+      arcDashAnimateTime={2100}
+      arcAltitudeAutoScale={0.34}
+      // 节点亮点
       pointsData={points}
       pointColor={(d: object) => (d as { color: string }).color}
-      pointAltitude={0.014}
+      pointAltitude={0.018}
       pointRadius={(d: object) => (d as { radius: number }).radius}
-      pointResolution={10}
+      pointResolution={16}
       // 节点辐射涟漪
       ringsData={rings}
       ringColor={(d: object) => () => (d as { color: string }).color}

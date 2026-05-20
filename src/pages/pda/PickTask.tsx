@@ -16,7 +16,7 @@ const PickTaskPage: FC = () => {
     : pickTasks.filter(t => {
         if (activeFilter === '待拣货') return t.status === '待执行';
         if (activeFilter === '拣货中') return t.status === '已拣货';
-        return t.status === '待执行';
+        return t.status === '已拣货';
       });
 
   return (
@@ -47,7 +47,7 @@ const PickTaskPage: FC = () => {
         {filtered.map((task) => (
           <button
             key={task.taskNo}
-            onClick={() => navigate('/pda/pick/scan')}
+            onClick={() => navigate('/pda/pick/scan', { state: { taskNo: task.taskNo } })}
             className="w-full rounded-lg bg-white p-3 text-left transition-all active:scale-[0.98] active:bg-info/10"
           >
             <div className="flex items-center justify-between">
@@ -55,7 +55,7 @@ const PickTaskPage: FC = () => {
               <span className={cn('rounded px-2 py-0.5 text-[11px] font-bold',
                 task.status === '待执行' ? 'bg-info/15 text-info' : 'bg-success/15 text-success'
               )}>
-                {task.status}
+                {task.status === '待执行' ? '待拣货' : '已完成'}
               </span>
             </div>
             <div className="mt-1.5 text-xs text-text-primary">{task.materialName}</div>

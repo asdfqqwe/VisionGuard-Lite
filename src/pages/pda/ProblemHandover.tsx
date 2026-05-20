@@ -19,6 +19,7 @@ const ProblemHandover: FC = () => {
   const [submitted, setSubmitted] = useState(false);
 
   const handleSubmit = () => {
+    if (!receiver) return;
     setSubmitted(true);
     setTimeout(() => navigate('/pda'), 1500);
   };
@@ -92,6 +93,7 @@ const ProblemHandover: FC = () => {
       <div className="mt-6">
         <button
           onClick={handleSubmit}
+          disabled={!receiver}
           className={cn('h-11 w-full rounded-md text-sm font-semibold text-white',
             receiver ? 'bg-danger-gradient' : 'bg-danger/40'
           )}

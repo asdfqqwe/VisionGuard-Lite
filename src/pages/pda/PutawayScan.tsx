@@ -1,24 +1,34 @@
 import type { FC } from 'react';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ScanLine } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { CheckCircle, ScanLine } from 'lucide-react';
+import { putawayTasks } from '@/data/mockData';
 import { cn } from '@/lib/utils';
 
 const PutawayScan: FC = () => {
   const navigate = useNavigate();
-  const [scannedCount, setScannedCount] = useState(3);
-  const totalCount = 6;
+  const location = useLocation();
+  const taskNo = (location.state as { taskNo?: string } | null)?.taskNo || 'PUT-001';
+  const task = putawayTasks.find((item) => item.taskNo === taskNo) || putawayTasks[0];
+  const totalCount = task.materialName.includes('动力电池') ? 2 : task.materialName.includes('矿泉水') ? 12 : 6;
+  const [scannedCount, setScannedCount] = useState(Math.min(3, totalCount - 1));
+  const done = scannedCount >= totalCount;
 
   const handleConfirm = () => {
-    if (scannedCount < totalCount) setScannedCount(c => c + 1);
+    if (done) {
+      navigate('/pda/putaway/task');
+      return;
+    }
+    setScannedCount(c => Math.min(totalCount, c + 1));
   };
 
   return (
     <div className="h-full bg-primary px-4 pt-3 pb-4">
       {/* Task Card */}
       <div className="rounded-lg bg-white p-3">
-        <div className="font-data text-sm font-semibold text-info">PUT-001</div>
-        <div className="mt-1 text-base font-semibold text-text-primary">A-03-12 → B-07-03</div>
+        <div className="font-data text-sm font-semibold text-info">{task.taskNo}</div>
+        <div className="mt-1 text-base font-semibold text-text-primary">{task.source} → {task.targetLocation}</div>
+        <div className="mt-1 text-xs text-text-primary">{task.materialName}</div>
         <div className="mt-1 text-xs text-text-primary">共 {totalCount} 件</div>
         <div className="mt-2 flex items-center gap-2">
           <span className="text-[11px] text-text-muted">已扫 {scannedCount}/{totalCount}</span>
@@ -41,10 +51,20 @@ const PutawayScan: FC = () => {
         <p className="mt-3 text-xs text-text-secondary">扫描货位条码</p>
       </div>
 
+      {done && (
+        <div className="mt-4 flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 p-3">
+          <CheckCircle className="h-5 w-5 text-success" />
+          <div>
+            <div className="text-xs font-semibold text-success">上架完成</div>
+            <div className="mt-0.5 text-[11px] text-text-secondary">库存已写入 {task.targetLocation}</div>
+          </div>
+        </div>
+      )}
+
       {/* Current Location */}
       <div className="mt-6 text-center">
         <span className="text-[11px] text-text-muted">当前货位</span>
-        <div className="mt-1 font-data text-xl font-bold text-text-primary">B-07-03</div>
+        <div className="mt-1 font-data text-xl font-bold text-text-primary">{task.targetLocation}</div>
       </div>
 
       {/* Scanned items */}
@@ -65,10 +85,10 @@ const PutawayScan: FC = () => {
         <button
           onClick={handleConfirm}
           className={cn('flex h-11 flex-1 items-center justify-center rounded text-sm font-semibold text-white',
-            scannedCount === totalCount ? 'bg-accent-gradient' : 'bg-accent-gradient/60'
+            done ? 'bg-success' : 'bg-accent-gradient'
           )}
         >
-          确认上架
+          {done ? '返回任务列表' : '确认上架'}
         </button>
       </div>
 

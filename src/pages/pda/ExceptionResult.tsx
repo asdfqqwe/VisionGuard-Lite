@@ -56,7 +56,7 @@ const ExceptionResult: FC = () => {
       {/* Quick Actions */}
       <div className="mt-6 space-y-2">
         <button
-          onClick={() => navigate(`/report/edit/${evt.eventNo}`)}
+          onClick={() => navigate(`/pda/report/edit/${evt.eventNo}`)}
           className="h-11 w-full rounded-md bg-accent-gradient text-sm font-semibold text-white"
         >
           编辑上报
