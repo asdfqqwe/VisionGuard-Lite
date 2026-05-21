@@ -14,6 +14,9 @@ import {
   Calculator,
   Video,
   ShoppingCart,
+  ClipboardCheck,
+  PackageCheck,
+  RotateCcw,
   User,
   ChevronRight,
   Home,
@@ -40,6 +43,9 @@ const menuItems: MenuItem[] = [
   { label: '盘点策略', path: '/admin/recount', icon: Calculator },
   { label: '视频分析', path: '/admin/videoanalysis', icon: Video },
   { label: '采购对接', path: '/admin/spf', icon: ShoppingCart },
+  { label: '入库质检配置', path: '/admin/inbound-config', icon: ClipboardCheck },
+  { label: '出库复核配置', path: '/admin/outbound-config', icon: PackageCheck },
+  { label: '生产退料入库', path: '/admin/return-inbound', icon: RotateCcw },
 ];
 
 export const AdminFrame: FC = () => {
@@ -50,7 +56,7 @@ export const AdminFrame: FC = () => {
     <div className="flex min-h-[100dvh] bg-primary">
       <EntrySidebar />
       {/* Left Sidebar */}
-      <aside className="fixed left-16 top-0 h-screen w-[200px] bg-[#F1F5F9] border-r border-border-light z-40 flex flex-col">
+      <aside className="fixed left-16 top-0 z-40 flex h-screen w-[220px] flex-col border-r border-border-light bg-[#F1F5F9]">
         {/* Logo */}
         <div className="flex h-14 items-center gap-2.5 px-4 border-b border-border-light">
           <div className="flex h-7 w-7 items-center justify-center rounded-md bg-accent">
@@ -111,7 +117,7 @@ export const AdminFrame: FC = () => {
       </aside>
 
       {/* Main Content */}
-      <main className="ml-[264px] flex-1 min-h-[100dvh]">
+      <main className="ml-[284px] flex-1 min-h-[100dvh]">
         {/* Header bar */}
         <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border-light bg-primary/90 px-6 backdrop-blur-sm">
           <div className="flex items-center gap-2">

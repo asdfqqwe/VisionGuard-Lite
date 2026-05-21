@@ -1,5 +1,7 @@
 import type { FC } from 'react';
+import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { Camera, CheckCircle2, MonitorCheck, ScanLine, Smartphone, Tag } from 'lucide-react';
 import { inspectionTasks, recountTasks } from '@/data/mockData';
 import { cn } from '@/lib/utils';
 
@@ -13,6 +15,10 @@ const recountData = [
 const Recount: FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [locationScanned, setLocationScanned] = useState(false);
+  const [barcodeScanned, setBarcodeScanned] = useState(false);
+  const [labelStatus, setLabelStatus] = useState<'正常' | '缺失' | '破损'>('正常');
+  const [detectionMode, setDetectionMode] = useState<'pda' | 'station'>('pda');
   const state = location.state as { taskNo?: string; actualQuantity?: number } | null;
   const recountTask = recountTasks.find((task) => task.taskNo === state?.taskNo) || recountTasks[0];
   const inspectionTask = inspectionTasks.find((task) => task.taskNo === state?.taskNo || task.location === recountTask.location);
@@ -26,6 +32,7 @@ const Recount: FC = () => {
     : recountData;
 
   const hasDiff = currentRows.some(r => r.systemQty !== r.actualQty);
+  const readyToSubmit = locationScanned && barcodeScanned;
 
   return (
     <div className="h-full bg-primary px-4 pt-3 pb-4">
@@ -36,6 +43,95 @@ const Recount: FC = () => {
         <div className="mt-1 text-xs text-text-muted">触发原因：{recountTask.triggerSource}{inspectionTask ? `（${inspectionTask.taskNo}）` : ''}</div>
         <div className="mt-2">
           <span className="rounded bg-warning/15 px-2 py-0.5 text-[11px] text-warning">进行中</span>
+        </div>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <button
+          onClick={() => setLocationScanned(true)}
+          className={cn(
+            'rounded-lg border bg-white p-3 text-left transition-all',
+            locationScanned && 'border-success bg-success/10',
+          )}
+        >
+          <div className="flex items-center gap-2">
+            <ScanLine className={cn('h-4 w-4', locationScanned ? 'text-success' : 'text-info')} />
+            <span className="text-xs font-semibold text-text-primary">扫库位码</span>
+          </div>
+          <div className="mt-1 font-data text-xs text-text-secondary">{recountTask.location}</div>
+          {locationScanned && <div className="mt-1 text-[11px] text-success">库位已确认</div>}
+        </button>
+        <button
+          onClick={() => setBarcodeScanned(true)}
+          className={cn(
+            'rounded-lg border bg-white p-3 text-left transition-all',
+            barcodeScanned && 'border-success bg-success/10',
+          )}
+        >
+          <div className="flex items-center gap-2">
+            <ScanLine className={cn('h-4 w-4', barcodeScanned ? 'text-success' : 'text-info')} />
+            <span className="text-xs font-semibold text-text-primary">扫货物码</span>
+          </div>
+          <div className="mt-1 font-data text-xs text-text-secondary">SKU-{recountTask.taskNo.replace('RC-', 'INV-')}</div>
+          {barcodeScanned && <div className="mt-1 text-[11px] text-success">物资匹配</div>}
+        </button>
+      </div>
+
+      <div className="mt-3 rounded-lg bg-white p-3">
+        <div className="mb-2 flex items-center gap-2">
+          <Tag className="h-4 w-4 text-info" />
+          <h3 className="text-sm font-semibold text-text-primary">标签巡检</h3>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {(['正常', '缺失', '破损'] as const).map((status) => (
+            <button
+              key={status}
+              onClick={() => setLabelStatus(status)}
+              className={cn(
+                'rounded border px-2 py-2 text-xs font-semibold',
+                labelStatus === status
+                  ? status === '正常'
+                    ? 'border-success bg-success/10 text-success'
+                    : 'border-warning bg-warning/10 text-warning'
+                  : 'border-border bg-primary text-text-secondary',
+              )}
+            >
+              {status}
+            </button>
+          ))}
+        </div>
+        <p className="mt-2 text-[11px] leading-relaxed text-text-muted">
+          检查标签是否缺失、破损、遮挡、倒置或错贴；异常可在结果页补打整改。
+        </p>
+      </div>
+
+      <div className="mt-3 rounded-lg bg-white p-3">
+        <div className="mb-2 flex items-center gap-2">
+          <Camera className="h-4 w-4 text-info" />
+          <h3 className="text-sm font-semibold text-text-primary">检测方式</h3>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            { key: 'pda', label: 'PDA 就地检测', icon: Smartphone, text: '拍照 + 人工修正' },
+            { key: 'station', label: '送 Station', icon: MonitorCheck, text: '整箱 / 大件视觉计数' },
+          ].map((item) => {
+            const Icon = item.icon;
+            const active = detectionMode === item.key;
+            return (
+              <button
+                key={item.key}
+                onClick={() => setDetectionMode(item.key as 'pda' | 'station')}
+                className={cn(
+                  'rounded-lg border px-3 py-2 text-left transition-all',
+                  active ? 'border-info bg-info/10 text-info' : 'border-border bg-primary text-text-secondary',
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                <div className="mt-1 text-xs font-semibold">{item.label}</div>
+                <div className="mt-0.5 text-[10px] text-text-muted">{item.text}</div>
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -81,21 +177,41 @@ const Recount: FC = () => {
       <div className="mt-4 rounded-md border-l-[3px] border-l-info bg-white p-3">
         <span className="text-xs font-semibold text-info">Agent建议：</span>
         <p className="mt-1 text-xs leading-relaxed text-text-secondary">
-          动碰盘点策略 — 本库位近7日有3次出入库，差异可能性高，建议转问题件并查监控
+          {detectionMode === 'station'
+            ? '整箱或大件建议送 Station 做视觉计数与 OCR 复核；结果会带回盘点报告。'
+            : '就地巡检建议保留库位码、货物码、标签状态和现场照片，差异项转人工复核。'}
         </p>
+      </div>
+
+      <div className="mt-3 flex items-center gap-2 rounded-lg bg-white p-3">
+        <CheckCircle2 className={cn('h-4 w-4', readyToSubmit ? 'text-success' : 'text-text-muted')} />
+        <div>
+          <div className="text-xs font-semibold text-text-primary">
+            {readyToSubmit ? '库位与货物已核对' : '请先完成库位和货物条码核对'}
+          </div>
+          <div className="mt-0.5 text-[10px] text-text-muted">标签：{labelStatus} · 检测：{detectionMode === 'station' ? 'Station' : 'PDA'}</div>
+        </div>
       </div>
 
       {/* Bottom Actions */}
       <div className="mt-6 flex gap-3">
         <button
           onClick={() => navigate('/pda/recount/result', { state: { taskNo: recountTask.taskNo } })}
-          className="flex h-11 flex-1 items-center justify-center rounded bg-warning text-sm font-semibold text-white"
+          disabled={!readyToSubmit}
+          className={cn(
+            'flex h-11 flex-1 items-center justify-center rounded text-sm font-semibold text-white',
+            readyToSubmit ? 'bg-warning' : 'bg-warning/40',
+          )}
         >
           处理差异
         </button>
         <button
           onClick={() => navigate('/pda')}
-          className="flex h-11 flex-1 items-center justify-center rounded bg-success text-sm font-semibold text-white"
+          disabled={!readyToSubmit || labelStatus !== '正常'}
+          className={cn(
+            'flex h-11 flex-1 items-center justify-center rounded text-sm font-semibold text-white',
+            readyToSubmit && labelStatus === '正常' ? 'bg-success' : 'bg-success/40',
+          )}
         >
           确认无误
         </button>

@@ -1,15 +1,38 @@
 import type { FC } from 'react';
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { CheckCircle, MapPin, ScanLine } from 'lucide-react';
+import { AlertTriangle, CheckCircle, ClipboardCheck, MapPin, RotateCcw, ScanLine } from 'lucide-react';
 import { pickTasks } from '@/data/mockData';
 import { cn } from '@/lib/utils';
+
+const scanMeta: Record<string, { orderNo: string; barcode: string; station: string; returned?: boolean; check: string }> = {
+  'PK-001': {
+    orderNo: 'SO-031',
+    barcode: 'BRG-B20260310A-010',
+    station: 'Station-03 出库复核',
+    check: '条码、库位、数量一致',
+  },
+  'PK-002': {
+    orderNo: 'SO-031',
+    barcode: 'GLOVE-L-202603-020',
+    station: '打包区扫码确认',
+    check: '低风险物资，扫码后可送打包',
+  },
+  'PK-003': {
+    orderNo: 'SO-031',
+    barcode: 'WPM-B03-02-005',
+    station: 'Station-03 出库复核',
+    returned: true,
+    check: 'Station 提示型号不符，重新扫描后送复核台',
+  },
+};
 
 const PickScan: FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const taskNo = (location.state as { taskNo?: string } | null)?.taskNo || 'PK-001';
   const task = pickTasks.find((item) => item.taskNo === taskNo) || pickTasks[0];
+  const meta = scanMeta[task.taskNo] || scanMeta['PK-001'];
   const [pickedCount, setPickedCount] = useState(Math.max(0, task.quantity - 1));
   const done = pickedCount >= task.quantity;
 
@@ -51,8 +74,19 @@ const PickScan: FC = () => {
       </div>
 
       {/* Current Item Card */}
-      <div className="mt-4 rounded-lg bg-white p-3">
-        <h3 className="text-base font-semibold text-text-primary">{task.materialName}</h3>
+      <div className={cn('mt-4 rounded-lg bg-white p-3', meta.returned && 'border border-warning/40 bg-warning/5')}>
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <div className="font-data text-[11px] font-semibold text-info">{meta.orderNo}</div>
+            <h3 className="mt-0.5 text-base font-semibold text-text-primary">{task.materialName}</h3>
+          </div>
+          {meta.returned && (
+            <span className="flex items-center gap-1 rounded bg-warning/15 px-2 py-1 text-[10px] font-semibold text-warning">
+              <RotateCcw className="h-3 w-3" />
+              重拣
+            </span>
+          )}
+        </div>
         <div className="mt-2 flex items-center justify-between">
           <div>
             <span className="text-[11px] text-text-muted">来源货位</span>
@@ -61,6 +95,16 @@ const PickScan: FC = () => {
           <div className="text-right">
             <span className="text-[11px] text-text-muted">数量</span>
             <div className="font-data text-base font-semibold text-text-primary">×{task.quantity}{task.unit}</div>
+          </div>
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="rounded bg-primary px-2 py-1.5">
+            <span className="text-[10px] text-text-muted">目标去向</span>
+            <p className="mt-0.5 text-[11px] font-medium text-text-primary">{meta.station}</p>
+          </div>
+          <div className="rounded bg-primary px-2 py-1.5">
+            <span className="text-[10px] text-text-muted">扫码校验</span>
+            <p className="mt-0.5 text-[11px] font-medium text-success">待确认</p>
           </div>
         </div>
       </div>
@@ -75,6 +119,10 @@ const PickScan: FC = () => {
           <ScanLine className="h-10 w-10 text-success/40" />
         </div>
         <p className="mt-3 text-xs text-text-secondary">扫描货品条码确认</p>
+        <div className="mt-2 rounded bg-white px-3 py-2 text-center">
+          <p className="font-data text-[11px] text-text-primary">{meta.barcode}</p>
+          <p className="mt-0.5 text-[10px] text-text-muted">{meta.check}</p>
+        </div>
       </div>
 
       {/* Progress */}
@@ -95,6 +143,18 @@ const PickScan: FC = () => {
         </div>
       )}
 
+      {meta.returned && !done && (
+        <div className="mt-4 rounded-lg border border-warning/30 bg-warning/10 p-3">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-warning" />
+            <span className="text-xs font-semibold text-warning">退回重拣任务</span>
+          </div>
+          <p className="mt-1 text-[11px] text-text-secondary">
+            上次复核发现型号不符，请核对实物铭牌、货位和出库单后再提交。
+          </p>
+        </div>
+      )}
+
       {/* Bottom Actions */}
       <div className="mt-6">
         <button
@@ -103,7 +163,10 @@ const PickScan: FC = () => {
             done ? 'bg-success' : 'bg-accent-gradient'
           )}
         >
-          {done ? '返回任务列表' : '确认拣货'}
+          <span className="inline-flex items-center gap-1.5">
+            {done ? <ClipboardCheck className="h-4 w-4" /> : <ScanLine className="h-4 w-4" />}
+            {done ? '返回任务列表' : '确认拣货'}
+          </span>
         </button>
       </div>
     </div>

@@ -17,6 +17,9 @@ import AdminClaims from '@/pages/admin/AdminClaims';
 import AdminRecountStrategy from '@/pages/admin/AdminRecountStrategy';
 import AdminVideoAnalysis from '@/pages/admin/AdminVideoAnalysis';
 import AdminSPFIntegration from '@/pages/admin/AdminSPFIntegration';
+import AdminInboundConfig from '@/pages/admin/AdminInboundConfig';
+import AdminOutboundConfig from '@/pages/admin/AdminOutboundConfig';
+import AdminReturnInbound from '@/pages/admin/AdminReturnInbound';
 
 function App() {
   return (
@@ -47,6 +50,9 @@ function App() {
             <Route path="recount" element={<AdminRecountStrategy />} />
             <Route path="videoanalysis" element={<AdminVideoAnalysis />} />
             <Route path="spf" element={<AdminSPFIntegration />} />
+            <Route path="inbound-config" element={<AdminInboundConfig />} />
+            <Route path="outbound-config" element={<AdminOutboundConfig />} />
+            <Route path="return-inbound" element={<AdminReturnInbound />} />
           </Route>
         </Routes>
       </HashRouter>

@@ -12,7 +12,7 @@ import {
   Fingerprint,
   Calendar,
   RotateCcw,
-  Settings,
+  ShieldAlert,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -29,8 +29,8 @@ const quickTools = [
   { icon: HandHelping, label: '移交', path: '/pda/problem/handover' },
   { icon: Fingerprint, label: '溯源', path: '/pda/trace/verify' },
   { icon: Calendar, label: '预约', path: '/pda/receive/appointment' },
-  { icon: RotateCcw, label: '退料', path: '/pda/return/scan' },
-  { icon: Settings, label: '设置', path: '/pda/mine' },
+  { icon: RotateCcw, label: '退料入库', path: '/pda/return/scan' },
+  { icon: ShieldAlert, label: '复核', path: '/pda/problem/handover' },
 ];
 
 const PDHome: FC = () => {

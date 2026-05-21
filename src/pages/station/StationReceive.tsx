@@ -15,6 +15,7 @@ import {
   Clock,
   CheckCircle,
   BookOpen,
+  Shuffle,
 } from 'lucide-react';
 import { useData } from '@/context/DataContext';
 import { cn } from '@/lib/utils';
@@ -302,6 +303,23 @@ const stateConfigs: Record<DetectionState, StateConfig> = {
   },
 };
 
+const stationSampleRows = [
+  { no: '#02', barcode: 'BPR-2405-002', label: '标签清晰', ocr: '98.1%', status: '通过' },
+  { no: '#05', barcode: 'BPR-2405-005', label: '轻微磨损', ocr: '84.7%', status: '复核' },
+  { no: '#08', barcode: 'BPR-2405-008', label: '标签清晰', ocr: '96.9%', status: '通过' },
+  { no: '#11', barcode: 'BPR-2405-011', label: '待检测', ocr: '-', status: '待检' },
+  { no: '#14', barcode: 'BPR-2405-014', label: '待检测', ocr: '-', status: '待检' },
+];
+
+const batchCheckRows = [
+  { label: '已检', value: '12 件', tone: 'text-info' },
+  { label: '通过', value: '10 件', tone: 'text-success' },
+  { label: '待复核', value: '1 件', tone: 'text-warning' },
+  { label: '拦截', value: '1 件', tone: 'text-danger' },
+];
+
+const showAlertStates: DetectionState[] = ['tagMissing', 'defect', 'intercept', 'multiModal'];
+
 // ─── Main component ───
 const StationReceive: FC = () => {
   const [currentState, setCurrentState] = useState<DetectionState>('pass');
@@ -312,9 +330,6 @@ const StationReceive: FC = () => {
   const order = deliveryOrders[0] || deliveryOrderPO007;
   const config = stateConfigs[currentState];
 
-  // Show alert for states that need full-screen popup
-  const showAlertStates: DetectionState[] = ['tagMissing', 'defect', 'intercept', 'multiModal'];
-
   const handleStateChange = useCallback(
     (state: DetectionState) => {
       setCurrentState(state);
@@ -324,7 +339,7 @@ const StationReceive: FC = () => {
         setAlertOpen(false);
       }
     },
-    [showAlertStates]
+    []
   );
 
   // Compute current item based on state
@@ -425,7 +440,7 @@ const StationReceive: FC = () => {
   };
 
   // State icon for the center image area
-  const StateIcon = () => {
+  const renderStateIcon = () => {
     switch (currentState) {
       case 'pass':
         return <CheckCircle2 className="h-8 w-8 text-success" />;
@@ -507,7 +522,7 @@ const StationReceive: FC = () => {
           }
           overlayContent={
             <div className="absolute top-3 left-3 flex items-center gap-2 rounded bg-[#F1F5F9]/80 px-2 py-1 backdrop-blur-sm">
-              <StateIcon />
+              {renderStateIcon()}
               <div>
                 <span className="text-xs font-medium text-text-primary">{config.title}</span>
                 {config.badge}
@@ -515,6 +530,56 @@ const StationReceive: FC = () => {
             </div>
           }
         />
+
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-2 rounded-lg bg-primary p-3"
+        >
+          <div className="mb-2 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Shuffle className="h-4 w-4 text-info" />
+              <span className="text-xs font-semibold text-text-primary">抽中样本检测</span>
+            </div>
+            <span className="rounded bg-info/10 px-2 py-0.5 text-[11px] font-semibold text-info">
+              随机 5 / 20 件
+            </span>
+          </div>
+          <div className="grid grid-cols-5 gap-2">
+            {stationSampleRows.map((row) => (
+              <div
+                key={row.no}
+                className={cn(
+                  'rounded-md border p-2',
+                  row.status === '通过'
+                    ? 'border-success/30 bg-success/10'
+                    : row.status === '复核'
+                      ? 'border-warning/40 bg-warning/10'
+                      : 'border-border-light bg-white'
+                )}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-data text-xs font-bold text-text-primary">{row.no}</span>
+                  <span
+                    className={cn(
+                      'rounded px-1.5 py-0.5 text-[10px] font-semibold',
+                      row.status === '通过'
+                        ? 'bg-success/15 text-success'
+                        : row.status === '复核'
+                          ? 'bg-warning/15 text-warning'
+                          : 'bg-text-muted/15 text-text-muted'
+                    )}
+                  >
+                    {row.status}
+                  </span>
+                </div>
+                <p className="mt-1 truncate font-data text-[10px] text-text-muted">{row.barcode}</p>
+                <p className="mt-1 text-[10px] text-text-secondary">{row.label}</p>
+                <p className="font-data text-[10px] text-info">OCR {row.ocr}</p>
+              </div>
+            ))}
+          </div>
+        </motion.div>
 
         {/* OCR confidence bar for blur state */}
         {currentState === 'blur' && (
@@ -596,6 +661,26 @@ const StationReceive: FC = () => {
 
         {/* Agent suggestion */}
         <AgentSuggestion suggestion={config.agentSuggestion} />
+
+        {(currentState === 'tagMissing' || currentState === 'intercept' || currentState === 'defect') && (
+          <div className="rounded-lg bg-white p-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-semibold text-text-primary">同批次排查</h4>
+              <span className="rounded bg-warning/15 px-2 py-0.5 text-[10px] font-semibold text-warning">已触发</span>
+            </div>
+            <div className="mt-3 grid grid-cols-4 gap-2">
+              {batchCheckRows.map((item) => (
+                <div key={item.label} className="rounded bg-primary px-2 py-2 text-center">
+                  <p className="text-[10px] text-text-muted">{item.label}</p>
+                  <p className={`font-data text-sm font-bold ${item.tone}`}>{item.value}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-2 text-[11px] text-text-secondary">
+              系统已把剩余样本加入待检队列，完成后回写到 Admin 工单。
+            </p>
+          </div>
+        )}
 
         {/* Action buttons */}
         {renderActionButtons()}

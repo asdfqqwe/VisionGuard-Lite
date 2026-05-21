@@ -11,6 +11,7 @@ const ReceiveDetail: FC = () => {
   const navigate = useNavigate();
   const orderNo = (location.state as { orderNo?: string } | null)?.orderNo || 'PO-007';
   const [expanded, setExpanded] = useState(false);
+  const [fieldReviewed, setFieldReviewed] = useState(false);
 
   const order = deliveryOrderPO007;
   const anomalousItems = order.items.filter(i => i.status !== '通过');
@@ -86,6 +87,10 @@ const ReceiveDetail: FC = () => {
             { label: '运单号', value: orderNo === 'PO-007' ? 'PKG-2024-001247' : `PKG-2024-00${orderNo.replace('PO-', '')}` },
             { label: '来源', value: '收货台 PKG-01' },
             { label: '供应商', value: order.supplier },
+            { label: '到货批次', value: firstAnomaly?.batchNo || 'L20260315A' },
+            { label: '采购单', value: order.purchaseOrderNo },
+            { label: '包装', value: '整托+散装' },
+            { label: '检测工位', value: 'Station-03 固定相机' },
             { label: '件数', value: `${order.items.length}/${order.items.length}` },
             { label: '重量', value: '23.5kg' },
             { label: '到库时间', value: '2024-01-15 09:32' },
@@ -96,6 +101,37 @@ const ReceiveDetail: FC = () => {
             </div>
           ))}
         </div>
+      </div>
+
+      <div className="mt-3 rounded-lg bg-white p-3">
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-text-primary">条码与 OCR 抽检</h3>
+          <span className="rounded bg-info/10 px-2 py-0.5 text-[10px] text-info">可人工修正</span>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            { label: '托码', value: 'PLT-20260315-007' },
+            { label: '箱码', value: 'CTN-007-001~006' },
+            { label: '配件料号', value: 'BPR-FX-2024' },
+            { label: '奇瑞料号', value: 'CHERY-BPR-FX' },
+            { label: '生产日期', value: '2026-03-15' },
+            { label: '有效期', value: '2028-03-15' },
+          ].map((row) => (
+            <div key={row.label} className="rounded bg-primary px-2 py-1.5">
+              <p className="text-[10px] text-text-muted">{row.label}</p>
+              <p className="mt-0.5 truncate font-data text-[11px] text-text-primary">{row.value}</p>
+            </div>
+          ))}
+        </div>
+        <button
+          onClick={() => setFieldReviewed(true)}
+          className={cn(
+            'mt-3 h-9 w-full rounded text-xs font-semibold',
+            fieldReviewed ? 'bg-success/15 text-success' : 'bg-info text-white',
+          )}
+        >
+          {fieldReviewed ? '字段已人工确认' : '人工确认字段'}
+        </button>
       </div>
 
       {/* Item Details - Collapsible */}
@@ -134,18 +170,18 @@ const ReceiveDetail: FC = () => {
       {/* Bottom Actions */}
       <div className="mt-6 flex gap-3">
         <button
-          onClick={() => navigate('/pda/receive/scan')}
+          onClick={() => navigate(resultCardType === 'pass' ? '/pda/receive/scan' : '/pda/problem/handover')}
           className="flex h-11 flex-1 items-center justify-center rounded border border-border bg-white text-sm text-text-secondary active:bg-primary"
         >
-          重新扫描
+          {resultCardType === 'pass' ? '重新扫描' : '移入复核区'}
         </button>
         <button
-          onClick={() => navigate('/pda/receive/summary')}
+          onClick={() => navigate(resultCardType === 'danger' ? '/pda/problem/handover' : '/pda/receive/summary')}
           className={cn('flex h-11 flex-1 items-center justify-center rounded text-sm font-semibold text-white',
             resultCardType === 'pass' ? 'bg-accent-gradient' : resultCardType === 'danger' ? 'bg-danger-gradient' : 'bg-accent-gradient'
           )}
         >
-          确认签收
+          {resultCardType === 'pass' ? '确认签收' : resultCardType === 'danger' ? '隔离处理' : '整改后入库'}
         </button>
       </div>
     </div>

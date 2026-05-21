@@ -6,6 +6,8 @@ import { postPurchaseSyncStatus } from '@/api/mockApi';
 
 const suppliers = ['华东物流', '江南华盛', '精工汽配', '环球物流'];
 const timeSlots = ['08:00-10:00', '10:00-12:00', '13:00-15:00', '15:00-17:00', '17:00-19:00'];
+const stationOptions = ['固定式视觉相机', '移动视觉 PDA'];
+const packagingOptions = ['散装', '盒装', '整托', '整托+散装'];
 
 const ReceiveAppointment: FC = () => {
   const navigate = useNavigate();
@@ -14,6 +16,9 @@ const ReceiveAppointment: FC = () => {
   const [date, setDate] = useState('');
   const [timeSlot, setTimeSlot] = useState('');
   const [skuCount, setSkuCount] = useState('');
+  const [packagingMethod, setPackagingMethod] = useState('整托+散装');
+  const [stationMode, setStationMode] = useState('固定式视觉相机');
+  const [skuLines, setSkuLines] = useState('前轮轴承 20件；发动机线束 4件');
   const [carrier, setCarrier] = useState('');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -24,7 +29,7 @@ const ReceiveAppointment: FC = () => {
     await postPurchaseSyncStatus({
       deliveryOrderNo: deliveryOrder,
       syncPhase: 'appointment',
-      syncData: { supplier, date, timeSlot, skuCount, carrier },
+      syncData: { supplier, date, timeSlot, skuCount, packagingMethod, stationMode, skuLines, carrier },
     });
     setSubmitting(false);
     navigate('/pda');
@@ -83,14 +88,47 @@ const ReceiveAppointment: FC = () => {
 
         {/* SKU Count */}
         <div>
-          <label className="mb-1 block text-[11px] text-text-muted">预计件数</label>
+          <label className="mb-1 block text-[11px] text-text-muted">预计 SKU / 件数</label>
           <input
             type="number"
             value={skuCount}
             onChange={(e) => setSkuCount(e.target.value)}
-            placeholder="输入预计件数"
+            placeholder="输入预计 SKU 数"
             className={cn('h-11 w-full rounded border border-border bg-white px-3 text-sm text-text-primary outline-none placeholder:text-text-muted', 'focus:border-info')}
           />
+        </div>
+
+        <div>
+          <label className="mb-1 block text-[11px] text-text-muted">SKU 明细</label>
+          <textarea
+            value={skuLines}
+            onChange={(e) => setSkuLines(e.target.value)}
+            placeholder="例：前轮轴承 20件；机油 6桶"
+            className={cn('h-16 w-full rounded border border-border bg-white px-3 py-2 text-sm text-text-primary outline-none placeholder:text-text-muted', 'focus:border-info')}
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="mb-1 block text-[11px] text-text-muted">包装方式</label>
+            <select
+              value={packagingMethod}
+              onChange={(e) => setPackagingMethod(e.target.value)}
+              className={cn('h-11 w-full rounded border border-border bg-white px-3 text-sm text-text-primary outline-none', 'focus:border-info')}
+            >
+              {packagingOptions.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-[11px] text-text-muted">检测工位</label>
+            <select
+              value={stationMode}
+              onChange={(e) => setStationMode(e.target.value)}
+              className={cn('h-11 w-full rounded border border-border bg-white px-3 text-sm text-text-primary outline-none', 'focus:border-info')}
+            >
+              {stationOptions.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
         </div>
 
         {/* Carrier */}

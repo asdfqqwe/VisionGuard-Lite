@@ -144,6 +144,44 @@ export interface PutawayTask {
   status: '待执行' | '已完成';
 }
 
+// ─── Return Inbound (生产退料入库) ───
+export interface ReturnInboundItem {
+  id: string;
+  materialName: string;
+  oldBarcode: string;
+  newBarcode: string;
+  expectedQty: number;
+  actualQty: number;
+  unit: string;
+  category: '关键零部件' | '标准件' | '辅料';
+  targetLocation: string;
+  labelStatus: '完整' | '轻微磨损' | '缺失';
+  ocrStatus: '通过' | '待复核';
+  bindStatus: '已重绑' | '待重绑';
+}
+
+export interface ReturnInboundOrder {
+  returnNo: string;
+  workshop: string;
+  reason: string;
+  submitter: string;
+  createdAt: string;
+  auditStatus: '待审核' | '已通过' | '驳回';
+  stationStatus: '待复检' | '复检中' | '复检通过';
+  inboundStatus: '待入库' | '已入库';
+  station: string;
+  riskLevel: '低' | '中' | '高';
+  items: ReturnInboundItem[];
+  checks: {
+    barcode: string;
+    label: string;
+    visualCount: string;
+    ocr: string;
+    storage: string;
+  };
+  auditTimeline: { role: string; action: string; time: string }[];
+}
+
 // ─── Pick Task (拣货任务) ───
 export interface PickTask {
   taskNo: string;
@@ -635,6 +673,119 @@ export const putawayTasks: PutawayTask[] = [
   { taskNo: 'PUT-004', materialName: '丁腈手套L', targetLocation: 'A-04-01', source: '标签问题解决后生成', status: '待执行' },
   { taskNo: 'PUT-005', materialName: '前保险杠', targetLocation: 'A-05-02', source: '合格项', status: '待执行' },
   { taskNo: 'PUT-006', materialName: '动力电池组', targetLocation: 'B-07-01（温控隔离区）', source: '合格项，进入温控监控', status: '待执行' },
+  { taskNo: 'PUT-RT-001', materialName: '生产退料混合批', targetLocation: 'R-02-01 / A-01-02', source: 'RT-001 退料复检通过', status: '待执行' },
+];
+
+// ─── Return Inbound Orders ───
+export const returnInboundOrders: ReturnInboundOrder[] = [
+  {
+    returnNo: 'RT-001',
+    workshop: '冲压车间',
+    reason: '生产结余',
+    submitter: '王班长',
+    createdAt: '2026-05-21 09:18',
+    auditStatus: '待审核',
+    stationStatus: '复检中',
+    inboundStatus: '待入库',
+    station: 'Station-03',
+    riskLevel: '中',
+    items: [
+      {
+        id: 'RTI-001',
+        materialName: '前轮轴承',
+        oldBarcode: 'BC-OLD-001',
+        newBarcode: 'BC-NEW-001',
+        expectedQty: 12,
+        actualQty: 12,
+        unit: '件',
+        category: '关键零部件',
+        targetLocation: 'A-01-02',
+        labelStatus: '完整',
+        ocrStatus: '通过',
+        bindStatus: '已重绑',
+      },
+      {
+        id: 'RTI-002',
+        materialName: '发动机线束',
+        oldBarcode: 'BC-OLD-002',
+        newBarcode: 'BC-NEW-002',
+        expectedQty: 6,
+        actualQty: 6,
+        unit: '件',
+        category: '关键零部件',
+        targetLocation: 'IQ-TMP-01',
+        labelStatus: '轻微磨损',
+        ocrStatus: '待复核',
+        bindStatus: '已重绑',
+      },
+      {
+        id: 'RTI-003',
+        materialName: '雨刮电机',
+        oldBarcode: 'BC-OLD-003',
+        newBarcode: 'BC-NEW-003',
+        expectedQty: 3,
+        actualQty: 3,
+        unit: '件',
+        category: '标准件',
+        targetLocation: 'R-02-01',
+        labelStatus: '完整',
+        ocrStatus: '通过',
+        bindStatus: '待重绑',
+      },
+    ],
+    checks: {
+      barcode: '2/3 已重绑，1 件待扫码确认',
+      label: '2 件完整，1 件轻微磨损',
+      visualCount: '21/21 件一致',
+      ocr: '8 个字段中 1 个待人工复核',
+      storage: '关键件入 A 区，待复核件入临时位',
+    },
+    auditTimeline: [
+      { role: '车间', action: '提交退料单', time: '09:18' },
+      { role: 'Admin', action: '等待仓储主管审核', time: '09:22' },
+      { role: 'Station', action: '已接收复检任务', time: '09:25' },
+    ],
+  },
+  {
+    returnNo: 'RT-002',
+    workshop: '总装车间',
+    reason: '工艺变更剩余',
+    submitter: '李工',
+    createdAt: '2026-05-21 10:06',
+    auditStatus: '已通过',
+    stationStatus: '复检通过',
+    inboundStatus: '待入库',
+    station: 'Station-02',
+    riskLevel: '低',
+    items: [
+      {
+        id: 'RTI-004',
+        materialName: '丁腈手套',
+        oldBarcode: 'BC-OLD-014',
+        newBarcode: 'BC-NEW-014',
+        expectedQty: 20,
+        actualQty: 20,
+        unit: '盒',
+        category: '辅料',
+        targetLocation: 'A-04-01',
+        labelStatus: '完整',
+        ocrStatus: '通过',
+        bindStatus: '已重绑',
+      },
+    ],
+    checks: {
+      barcode: '全部已重绑',
+      label: '标签完整',
+      visualCount: '20/20 盒一致',
+      ocr: '全字段通过',
+      storage: '辅料区 A-04-01',
+    },
+    auditTimeline: [
+      { role: '车间', action: '提交退料单', time: '10:06' },
+      { role: 'Admin', action: '审核通过', time: '10:10' },
+      { role: 'Station', action: '复检通过', time: '10:15' },
+    ],
+  },
 ];
 
 // ─── Pick Tasks ───

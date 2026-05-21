@@ -9,6 +9,8 @@ import {
   StationReceive,
   StationOutbound,
   StationTriage,
+  StationRecount,
+  StationReturnInbound,
 } from '@/pages/station';
 
 interface StationFrameProps {
@@ -21,6 +23,8 @@ const modeLabels: Record<string, { label: string; color: string }> = {
   '/station/receive': { label: '收货检测', color: 'text-info' },
   '/station/outbound': { label: '出库复核', color: 'text-success' },
   '/station/triage': { label: '包装分流', color: 'text-warning' },
+  '/station/recount': { label: '盘点复核', color: 'text-warning' },
+  '/station/return-inbound': { label: '退料复检', color: 'text-info' },
 };
 
 const DEVICE_WIDTH = 1280;
@@ -132,6 +136,8 @@ export const StationFrame: FC<StationFrameProps> = ({ className }) => {
               <Route path="/receive" element={<StationReceive />} />
               <Route path="/outbound" element={<StationOutbound />} />
               <Route path="/triage" element={<StationTriage />} />
+              <Route path="/recount" element={<StationRecount />} />
+              <Route path="/return-inbound" element={<StationReturnInbound />} />
             </Routes>
           </div>
         </div>

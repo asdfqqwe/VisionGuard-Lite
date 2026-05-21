@@ -1,6 +1,11 @@
 import type { FC } from 'react';
 import { useState } from 'react';
 import {
+  AlertTriangle,
+  CheckCircle2,
+  ClipboardList,
+  FileText,
+  Printer,
   Settings,
   Play,
   ChevronDown,
@@ -39,9 +44,50 @@ const historyData = [
   { batch: 'RC-2024-004', area: 'B-07区', systemQty: 12, actualQty: 12, diff: 0, status: '一致', date: '2024-03-13' },
 ];
 
+const dispatchTasks = [
+  {
+    id: 'RC-001',
+    location: 'A-03-05',
+    material: '矿泉水',
+    frequency: '重点库位 · 周度',
+    executor: 'PDA-07 王工',
+    station: 'Station-03',
+    status: '执行中',
+  },
+  {
+    id: 'RC-002',
+    location: 'A-01-02',
+    material: '前轮轴承',
+    frequency: '动碰 · 实时',
+    executor: 'PDA-03 李工',
+    station: '移动 PDA',
+    status: '已完成',
+  },
+  {
+    id: 'RC-003',
+    location: 'B-02-04',
+    material: '5W-40 机油',
+    frequency: '静态 · 月度',
+    executor: 'PDA-11 周工',
+    station: 'Station-02',
+    status: '待下发',
+  },
+];
+
+const resultReports = [
+  { id: 'RC-RPT-001', task: 'RC-002', result: '一致', lastCountDate: '2026-05-21', report: '已生成' },
+  { id: 'RC-RPT-002', task: 'RC-001', result: '差异', lastCountDate: '待确认', report: '待复核' },
+];
+
+const diffActions = [
+  { issue: '漏盘', material: '矿泉水', owner: '巡检员-王', action: '人工复核 + 查监控', status: '处理中' },
+  { issue: '标签缺失', material: '丁腈手套', owner: '仓管员-陈', action: '补打标签 + 复拍', status: '待整改' },
+];
+
 export const AdminRecountStrategy: FC = () => {
   const [strategies, setStrategies] = useState<Strategy[]>(initialStrategies);
   const [expanded, setExpanded] = useState<StrategyType>('动碰');
+  const [generated, setGenerated] = useState(false);
 
   const toggleStrategy = (type: StrategyType) => {
     setStrategies((prev) =>
@@ -50,6 +96,7 @@ export const AdminRecountStrategy: FC = () => {
   };
 
   const genTodayTasks = () => {
+    setGenerated(true);
     alert(`已生成今日盘点任务 ${focusLocations.length} 条`);
   };
 
@@ -169,6 +216,64 @@ export const AdminRecountStrategy: FC = () => {
         </div>
       </div>
 
+      <div className="mb-6 grid grid-cols-3 gap-4">
+        <div className="rounded-lg bg-gray-100 p-4">
+          <div className="flex items-center gap-2">
+            <ClipboardList className="h-4 w-4 text-info" />
+            <span className="text-sm font-semibold text-text-primary">今日任务</span>
+          </div>
+          <p className="mt-2 font-data text-2xl font-bold text-info">{dispatchTasks.length}</p>
+          <p className="mt-1 text-xs text-text-muted">{generated ? '已重新生成并下发' : '按当前策略生成'}</p>
+        </div>
+        <div className="rounded-lg bg-gray-100 p-4">
+          <div className="flex items-center gap-2">
+            <FileText className="h-4 w-4 text-success" />
+            <span className="text-sm font-semibold text-text-primary">盘点报告</span>
+          </div>
+          <p className="mt-2 font-data text-2xl font-bold text-success">2</p>
+          <p className="mt-1 text-xs text-text-muted">一致结果自动写入日期</p>
+        </div>
+        <div className="rounded-lg bg-gray-100 p-4">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-warning" />
+            <span className="text-sm font-semibold text-text-primary">待处理差异</span>
+          </div>
+          <p className="mt-2 font-data text-2xl font-bold text-warning">{diffActions.length}</p>
+          <p className="mt-1 text-xs text-text-muted">账实不符和标签整改</p>
+        </div>
+      </div>
+
+      <div className="mb-6 rounded-lg bg-gray-100 p-5">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-text-primary">任务下发与执行状态</h3>
+          <span className="text-xs text-text-muted">Admin 下发，PDA 执行，Station 复核</span>
+        </div>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border-light">
+              {['任务', '库位', '物资', '频次', '执行人', '检测方式', '状态'].map((head) => (
+                <th key={head} className="px-2 py-2 text-left text-[10px] font-semibold text-text-muted">{head}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {dispatchTasks.map((task) => (
+              <tr key={task.id} className="border-b border-border-light/30">
+                <td className="px-2 py-2 font-data text-xs text-info">{task.id}</td>
+                <td className="px-2 py-2 font-data text-xs text-text-primary">{task.location}</td>
+                <td className="px-2 py-2 text-xs text-text-secondary">{task.material}</td>
+                <td className="px-2 py-2 text-xs text-text-secondary">{task.frequency}</td>
+                <td className="px-2 py-2 text-xs text-text-secondary">{task.executor}</td>
+                <td className="px-2 py-2 text-xs text-text-secondary">{task.station}</td>
+                <td className="px-2 py-2">
+                  <StatusBadge status={task.status} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
       {/* Focus Locations + History */}
       <div className="grid grid-cols-2 gap-6">
         {/* Focus Locations */}
@@ -225,6 +330,48 @@ export const AdminRecountStrategy: FC = () => {
               ))}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <div className="mt-6 grid grid-cols-2 gap-6">
+        <div className="rounded-lg bg-gray-100 p-5">
+          <div className="mb-4 flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-success" />
+            <h3 className="text-sm font-semibold text-text-primary">盘点报告写入</h3>
+          </div>
+          <div className="space-y-2">
+            {resultReports.map((report) => (
+              <div key={report.id} className="grid grid-cols-4 gap-2 rounded bg-white px-3 py-2 text-xs">
+                <span className="font-data text-info">{report.id}</span>
+                <span className="font-data text-text-secondary">{report.task}</span>
+                <span className={report.result === '一致' ? 'text-success' : 'text-warning'}>{report.result}</span>
+                <span className="font-data text-text-primary">{report.lastCountDate}</span>
+              </div>
+            ))}
+          </div>
+          <p className="mt-3 text-xs text-text-muted">一致项自动生成报告，并写入库位最新盘点日期；差异项先进入人工复核。</p>
+        </div>
+
+        <div className="rounded-lg bg-gray-100 p-5">
+          <div className="mb-4 flex items-center gap-2">
+            <Printer className="h-4 w-4 text-warning" />
+            <h3 className="text-sm font-semibold text-text-primary">差异与标签整改</h3>
+          </div>
+          <div className="space-y-2">
+            {diffActions.map((item) => (
+              <div key={`${item.issue}-${item.material}`} className="rounded bg-white px-3 py-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-text-primary">{item.material}</span>
+                  <StatusBadge status={item.status} />
+                </div>
+                <div className="mt-1 grid grid-cols-3 gap-2 text-[11px] text-text-secondary">
+                  <span>{item.issue}</span>
+                  <span>{item.owner}</span>
+                  <span>{item.action}</span>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>

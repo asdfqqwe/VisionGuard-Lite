@@ -10,6 +10,11 @@ import {
   ClipboardCheck,
   Package,
   AlertTriangle,
+  Barcode,
+  Camera,
+  FileText,
+  Gauge,
+  ScanLine,
 } from 'lucide-react';
 import { useData } from '@/context/DataContext';
 import { cn } from '@/lib/utils';
@@ -54,6 +59,25 @@ const timelineStages: TimelineStage[] = [
     icon: <Truck className="h-4 w-4" />,
   },
 ];
+
+const outboundChecks = [
+  { label: '视觉点数', expected: '3 件', actual: '3 件', status: '通过', icon: Camera },
+  { label: '条码匹配', expected: 'SO-031 清单', actual: '3 条已匹配', status: '通过', icon: Barcode },
+  { label: '标签合规', expected: '标签位置/可读性', actual: '3/3 合规', status: '通过', icon: ScanLine },
+  { label: 'OCR 字段', expected: 'SKU/批次/数量', actual: '雨刮电机型号不符', status: '异常', icon: FileText },
+];
+
+const fieldRows = [
+  { field: 'SKU', expected: 'WPM-2026-A', actual: 'WPM-2026-B', status: '异常' },
+  { field: '批次', expected: 'B20260309C', actual: 'B20260309C', status: '通过' },
+  { field: '数量', expected: '5 件', actual: '5 件', status: '通过' },
+];
+
+const inspectionPolicy = {
+  mode: '全检',
+  reason: '同供应商 7 日内 3 次异常，关键零部件出库需逐件复核',
+  source: 'Admin 出库复核策略 R-OUT-02',
+};
 
 const StationOutbound: FC = () => {
   const { outboundOrders } = useData();
@@ -213,6 +237,17 @@ const StationOutbound: FC = () => {
           </div>
         </div>
 
+        <div className="mt-3 rounded-lg bg-[#F1F5F9] p-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold text-text-primary">检测策略</h3>
+            <span className="rounded bg-info/15 px-2 py-0.5 text-[10px] font-bold text-info">
+              {inspectionPolicy.mode}
+            </span>
+          </div>
+          <p className="mt-2 text-[11px] leading-relaxed text-text-secondary">{inspectionPolicy.reason}</p>
+          <p className="mt-1 font-data text-[10px] text-text-muted">{inspectionPolicy.source}</p>
+        </div>
+
         {/* Bottom buttons */}
         <div className="mt-3 flex gap-2">
           <button className="flex-1 rounded bg-[#F1F5F9] py-2 text-xs text-text-secondary transition-colors hover:bg-gray-100">
@@ -289,6 +324,39 @@ const StationOutbound: FC = () => {
             </div>
           </motion.div>
         )}
+
+        <div className="mt-2 grid grid-cols-4 gap-2">
+          {outboundChecks.map((check) => {
+            const Icon = check.icon;
+            const abnormal = check.status === '异常';
+            return (
+              <div
+                key={check.label}
+                className={cn(
+                  'rounded-lg border bg-primary p-2',
+                  abnormal ? 'border-danger/40 bg-danger/10' : 'border-success/30 bg-success/10'
+                )}
+              >
+                <div className="flex items-center justify-between">
+                  <Icon className={cn('h-4 w-4', abnormal ? 'text-danger' : 'text-success')} />
+                  <span
+                    className={cn(
+                      'rounded px-1.5 py-0.5 text-[10px] font-bold',
+                      abnormal ? 'bg-danger/15 text-danger' : 'bg-success/15 text-success'
+                    )}
+                  >
+                    {check.status}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs font-semibold text-text-primary">{check.label}</p>
+                <p className="mt-1 text-[10px] text-text-muted">{check.expected}</p>
+                <p className={cn('mt-0.5 text-[11px] font-medium', abnormal ? 'text-danger' : 'text-success')}>
+                  {check.actual}
+                </p>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* RIGHT COLUMN: AI judgment + Agent suggestion + Collaboration + Mini cards */}
@@ -322,6 +390,26 @@ const StationOutbound: FC = () => {
                 <span className="font-medium text-success">匹配</span>
               </div>
             </div>
+          </div>
+        </div>
+
+        <div className="rounded-lg bg-[#F1F5F9] p-3">
+          <div className="mb-2 flex items-center gap-2">
+            <Gauge className="h-4 w-4 text-info" />
+            <span className="text-xs font-semibold text-text-primary">字段核验</span>
+          </div>
+          <div className="space-y-1">
+            {fieldRows.map((row) => {
+              const abnormal = row.status === '异常';
+              return (
+                <div key={row.field} className="grid grid-cols-[56px_1fr_1fr_42px] gap-2 rounded bg-primary px-2 py-1.5 text-[11px]">
+                  <span className="text-text-muted">{row.field}</span>
+                  <span className="font-data text-text-secondary">{row.expected}</span>
+                  <span className={cn('font-data', abnormal ? 'text-danger' : 'text-text-primary')}>{row.actual}</span>
+                  <span className={cn('text-right font-semibold', abnormal ? 'text-danger' : 'text-success')}>{row.status}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
 

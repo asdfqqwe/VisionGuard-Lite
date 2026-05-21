@@ -11,6 +11,8 @@ import {
   ShieldAlert,
   FileText,
   Video,
+  ClipboardCheck,
+  RotateCcw,
   Bell,
   Zap,
   ArrowRight,
@@ -29,6 +31,8 @@ const quickLinks = [
   { icon: ShieldAlert, label: '隔离区', path: '/admin/quarantine' },
   { icon: FileText, label: '索赔', path: '/admin/claims' },
   { icon: Video, label: '视频', path: '/admin/videoanalysis' },
+  { icon: ClipboardCheck, label: '入库配置', path: '/admin/inbound-config' },
+  { icon: RotateCcw, label: '退料入库', path: '/admin/return-inbound' },
 ];
 
 const statusData = [

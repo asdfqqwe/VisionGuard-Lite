@@ -1,7 +1,8 @@
 import type { FC } from 'react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, ScanLine } from 'lucide-react';
+import { ArrowRight, ClipboardCheck, MonitorCheck, ScanLine, Smartphone } from 'lucide-react';
+import { returnInboundOrders } from '@/data/mockData';
 import { cn } from '@/lib/utils';
 
 const ReturnScan: FC = () => {
@@ -27,6 +28,21 @@ const ReturnScan: FC = () => {
           <ScanLine className="h-10 w-10 text-success/40" />
         </div>
         <p className="mt-3 text-xs text-text-secondary">扫描退料单条码</p>
+        <div className="mt-2 flex gap-1.5">
+          {[
+            { icon: ClipboardCheck, label: 'Admin审核' },
+            { icon: MonitorCheck, label: 'Station复检' },
+            { icon: Smartphone, label: 'PDA入库' },
+          ].map((item) => {
+            const Icon = item.icon;
+            return (
+              <span key={item.label} className="flex items-center gap-1 rounded bg-white px-2 py-1 text-[10px] text-text-muted">
+                <Icon className="h-3 w-3 text-info" />
+                {item.label}
+              </span>
+            );
+          })}
+        </div>
       </div>
 
       {/* Manual Input */}
@@ -56,13 +72,29 @@ const ReturnScan: FC = () => {
       {/* Recent */}
       <div className="mt-4">
         <h3 className="mb-2 text-xs text-text-muted">最近退料</h3>
-        <button
-          onClick={() => navigate('/pda/return/detail', { state: { returnNo: 'RT-001' } })}
-          className="flex w-full items-center justify-between rounded bg-white px-3 py-2 text-left"
-        >
-          <span className="font-data text-sm text-text-primary">RT-001</span>
-          <span className="text-[11px] text-text-muted">冲压车间</span>
-        </button>
+        <div className="space-y-2">
+          {returnInboundOrders.map((order) => (
+            <button
+              key={order.returnNo}
+              onClick={() => navigate('/pda/return/detail', { state: { returnNo: order.returnNo } })}
+              className="w-full rounded bg-white px-3 py-2 text-left"
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-data text-sm text-text-primary">{order.returnNo}</span>
+                <span className={cn(
+                  'rounded px-2 py-0.5 text-[11px]',
+                  order.auditStatus === '已通过' ? 'bg-success/15 text-success' : 'bg-warning/15 text-warning',
+                )}>
+                  {order.auditStatus}
+                </span>
+              </div>
+              <div className="mt-1 flex items-center justify-between text-[11px] text-text-muted">
+                <span>{order.workshop}</span>
+                <span>{order.stationStatus}</span>
+              </div>
+            </button>
+          ))}
+        </div>
       </div>
 
       <style>{`

@@ -4,6 +4,7 @@ import {
   Monitor,
   TrendingUp,
   Activity,
+  ClipboardCheck,
   Wifi,
   WifiOff,
   PackageSearch,
@@ -25,6 +26,7 @@ import {
   Loader2,
   RotateCcw,
   ShieldAlert,
+  Weight,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useData } from '@/context/DataContext';
@@ -259,8 +261,8 @@ const QueueItem: FC<QueueItemProps> = ({
 const pipelineChips: PipelineChipDef[] = [
   { key: 'visualCount', name: '视觉件数', icon: <Boxes className="h-3.5 w-3.5" /> },
   { key: 'labelCompliance', name: '标签合规', icon: <Tag className="h-3.5 w-3.5" /> },
-  { key: 'modelOcr', name: '型号OCR', icon: <FileText className="h-3.5 w-3.5" /> },
-  { key: 'fieldOcr', name: '字段OCR', icon: <ScanLine className="h-3.5 w-3.5" /> },
+  { key: 'modelOcr', name: '关键字段', icon: <FileText className="h-3.5 w-3.5" /> },
+  { key: 'fieldOcr', name: '条码采集', icon: <ScanLine className="h-3.5 w-3.5" /> },
   { key: 'multiModal', name: '多模态', icon: <Layers className="h-3.5 w-3.5" /> },
   { key: 'defect', name: '外观缺陷', icon: <PackageX className="h-3.5 w-3.5" /> },
   { key: 'videoViolation', name: '视频违规', icon: <Eye className="h-3.5 w-3.5" /> },
@@ -492,6 +494,42 @@ const StationIdle: FC = () => {
           </motion.div>
         )}
 
+        <div className="mt-2 rounded-lg border border-info/20 bg-info/10 p-2.5">
+          <div className="mb-1.5 flex items-center gap-1.5">
+            <ScanLine className="h-3.5 w-3.5 text-info" />
+            <span className="text-[11px] font-semibold text-info">入库检测配置</span>
+          </div>
+          <div className="space-y-1 text-[10px] text-text-secondary">
+            <div className="flex justify-between">
+              <span>工位</span>
+              <span className="font-medium text-text-primary">固定相机 / 移动 PDA</span>
+            </div>
+            <div className="flex justify-between">
+              <span>托码 / 箱码</span>
+              <span className="font-data text-text-primary">1 托 + 6 箱</span>
+            </div>
+            <div className="flex justify-between">
+              <span>箱规</span>
+              <span className="font-data text-text-primary">12 件/箱</span>
+            </div>
+            <div className="flex justify-between">
+              <span>标签异常</span>
+              <span className="text-warning">破损 / 遮挡 / 倒置 / 错贴</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-2 rounded-lg border border-warning/25 bg-warning/10 p-2.5">
+          <div className="flex items-center gap-1.5">
+            <Weight className="h-3.5 w-3.5 text-warning" />
+            <span className="text-[11px] font-semibold text-warning">散装估算</span>
+            <span className="ml-auto font-data text-[11px] text-text-primary">24.2kg / 4.03kg</span>
+          </div>
+          <p className="mt-1 text-[10px] text-text-secondary">
+            非整托物料按重力台读数估算数量，差异超过 3% 自动转人工复核。
+          </p>
+        </div>
+
         <div className="mt-auto space-y-1.5 pt-2.5">
           <h4 className="text-[11px] font-medium text-text-muted">切换模式</h4>
           <button
@@ -526,6 +564,28 @@ const StationIdle: FC = () => {
             <div className="min-w-0 flex-1">
               <span className="text-[11px] font-medium text-warning">包装复核 / 异常分流</span>
               <p className="truncate text-[10px] text-text-muted">问题件处理 / 分流操作</p>
+            </div>
+            <ArrowRight className="h-3 w-3 shrink-0 text-text-muted" />
+          </button>
+          <button
+            onClick={() => navigate('/station/recount')}
+            className="flex w-full items-center gap-2 rounded-lg bg-accent/15 px-2.5 py-2 text-left transition-colors hover:bg-accent/25"
+          >
+            <ClipboardCheck className="h-3.5 w-3.5 shrink-0 text-accent" />
+            <div className="min-w-0 flex-1">
+              <span className="text-[11px] font-medium text-accent">盘点视觉复核</span>
+              <p className="truncate text-[10px] text-text-muted">整箱点数 / OCR 全量识别</p>
+            </div>
+            <ArrowRight className="h-3 w-3 shrink-0 text-text-muted" />
+          </button>
+          <button
+            onClick={() => navigate('/station/return-inbound')}
+            className="flex w-full items-center gap-2 rounded-lg bg-info/15 px-2.5 py-2 text-left transition-colors hover:bg-info/25"
+          >
+            <RotateCcw className="h-3.5 w-3.5 shrink-0 text-info" />
+            <div className="min-w-0 flex-1">
+              <span className="text-[11px] font-medium text-info">退料入库复检</span>
+              <p className="truncate text-[10px] text-text-muted">标签 / 点数 / OCR 全量复核</p>
             </div>
             <ArrowRight className="h-3 w-3 shrink-0 text-text-muted" />
           </button>
@@ -649,7 +709,7 @@ const StationIdle: FC = () => {
           imageUrl={
             player.currentItem
               ? player.currentItem.cameraImageUrl
-              : '/images/station-cam/cam-01-shelf-overview.jpg'
+              : nextItem?.cameraImageUrl ?? '/images/station-cam/cam-01-shelf-overview.jpg'
           }
           overlayBoxes={player.currentItem?.boxes}
           revealedBoxIds={player.revealedBoxIds}
