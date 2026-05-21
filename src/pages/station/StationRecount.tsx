@@ -58,7 +58,7 @@ const issueRows = [
 export const StationRecount: FC = () => {
   const [selectedTask, setSelectedTask] = useState(queue[0]);
   const [moved, setMoved] = useState(true);
-  const [fullOcr, setFullOcr] = useState(false);
+  const [fullOcr, setFullOcr] = useState(true);
   const [reviewed, setReviewed] = useState(false);
 
   return (
@@ -77,7 +77,7 @@ export const StationRecount: FC = () => {
                 onClick={() => {
                   setSelectedTask(item);
                   setMoved(item.status !== '待搬运');
-                  setFullOcr(false);
+                  setFullOcr(true);
                   setReviewed(false);
                 }}
                 className={cn(
@@ -239,10 +239,9 @@ export const StationRecount: FC = () => {
         <div className="mt-auto space-y-2">
           <button
             onClick={() => setReviewed(true)}
-            disabled={!fullOcr}
             className={cn(
               'flex h-10 w-full items-center justify-center gap-2 rounded text-xs font-semibold text-white',
-              fullOcr ? 'bg-warning' : 'bg-warning/40',
+              'bg-warning',
             )}
           >
             提交账实差异

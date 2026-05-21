@@ -1,5 +1,6 @@
 import type { FC } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import {
   Monitor,
   TrendingUp,
@@ -32,9 +33,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useData } from '@/context/DataContext';
 import { cn } from '@/lib/utils';
 import { FullScreenAlert } from '@/components/shared';
+import { purchaseReceiveGuide } from '@/data/purchaseReceiveGuide';
 import {
   detectionScript,
   type DetectionBox as DetectionBoxData,
+  type ScriptedItem,
 } from './detection-script';
 import { useDetectionPlayer } from './useDetectionPlayer';
 import {
@@ -164,7 +167,7 @@ interface QueueItemProps {
   qty: string;
   category: string;
   imageUrl: string;
-  /** 队列内的相对索引：0=NEXT, 1+=#2 #3... */
+  /** 队列内的相对位置：0=当前待检，其余为待检 */
   positionInQueue: number;
   /** 演示状态点缀：0=未触达 1=进行中 2=已完成（仅最末显示） */
   state?: 'pending' | 'detecting' | 'done';
@@ -215,8 +218,8 @@ const QueueItem: FC<QueueItemProps> = ({
             : isNext
               ? state === 'detecting'
                 ? '...'
-                : 'NEXT'
-              : `#${positionInQueue + 1}`}
+                : '当前'
+              : '待检'}
         </span>
       </div>
       <div className="min-w-0 flex-1">
@@ -288,20 +291,29 @@ const AgentSummaryItem: FC<AgentSummaryItemProps> = ({ time, content, type }) =>
 
 const StationIdle: FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isPurchaseGuide = searchParams.get('scenario') === 'purchase-receive';
+  const activeScript = isPurchaseGuide ? detectionScript.slice(0, 2) : detectionScript;
   const { dashboardData, agentEvents } = useData();
-  const player = useDetectionPlayer(detectionScript);
+  const player = useDetectionPlayer(activeScript);
 
-  // 演示中态：cursor 指向下一件待检，currentItem 保留当前展示结果
+  // 检测中态：cursor 指向下一件待检，currentItem 保留当前展示结果
   const isPlaying = player.phase === 'detecting' || player.phase === 'awaitingConfirm';
   const isAwaitingL2Action = player.phase === 'awaitingL2Action';
   const isReviewingPass = player.phase === 'reviewing';
   const isFinished = player.phase === 'finished';
   const hasDetectionResult = player.currentItem != null;
+  const currentOutcome = player.currentItem?.outcome;
+  const shouldSendToPdaReview = currentOutcome === 'l2' || currentOutcome === 'l1';
+  const isHoldingCurrentResult =
+    player.phase === 'reviewing' ||
+    player.phase === 'awaitingL2Action' ||
+    player.phase === 'awaitingConfirm';
 
   // 静态摘要仅在尚未开始检测时显示，检测后右侧保留当前图片对应的 Agent 结论
   const showStaticSummary = !hasDetectionResult && player.phase === 'idle';
 
-  const agentSummaries: AgentSummaryItemProps[] = [
+  const defaultAgentSummaries: AgentSummaryItemProps[] = [
     {
       time: '09:15',
       content:
@@ -319,11 +331,34 @@ const StationIdle: FC = () => {
       type: 'info',
     },
   ];
+  const purchaseAgentSummaries: AgentSummaryItemProps[] = [
+    {
+      time: '08:42',
+      content:
+        'PO-78910 已接收检测任务，托码 PLT-20260315-007 和箱码 CTN-007-001 等待固定相机复核。',
+      type: 'info',
+    },
+    {
+      time: '08:46',
+      content: 'OCR 抽检标签 APX-74218 字段已读取，供应商编码、批次、生产日期和有效期可关联。',
+      type: 'info',
+    },
+    {
+      time: '08:49',
+      content: '前保险杠外箱标签存在破损和覆膜遮挡，检测后需要 PDA 人工复核。',
+      type: 'warning',
+    },
+  ];
+  const agentSummaries = isPurchaseGuide ? purchaseAgentSummaries : defaultAgentSummaries;
 
   // 当前栈：cursor 起始的剩余待检件
-  const remainingScript = detectionScript.slice(player.cursor);
+  const displayCursor =
+    isHoldingCurrentResult && player.cursor < activeScript.length
+      ? player.cursor + 1
+      : player.cursor;
+  const remainingScript = activeScript.slice(displayCursor);
   const completedItem =
-    player.displayIndex != null ? detectionScript[player.displayIndex] : null;
+    player.displayIndex != null ? activeScript[player.displayIndex] : null;
 
   // 主按钮文案与颜色
   const renderMainButton = () => {
@@ -373,7 +408,7 @@ const StationIdle: FC = () => {
           className="flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 py-2 text-xs font-medium text-primary-dark transition-colors hover:bg-accent/90"
         >
           <RotateCcw className="h-4 w-4" />
-          演示结束 · 重新开始
+          重新检测
         </button>
       );
     }
@@ -389,17 +424,29 @@ const StationIdle: FC = () => {
     );
   };
 
-  // NEXT banner 物品
+  // 待检提示栏物品
   const nextItem = remainingScript[0] ?? null;
-  const bannerItem = isPlaying ? player.currentItem : nextItem;
+  const bannerItem = isPlaying || isHoldingCurrentResult ? player.currentItem : nextItem;
 
   // Pending agent events
   const pendingEvents = agentEvents.filter((e) => e.status === '待人工确认');
+  const displayPendingEvents = isPurchaseGuide ? [] : pendingEvents;
 
   return (
     <div className="flex h-full">
       {/* LEFT COLUMN: Brand + Today Data */}
       <div className="flex h-full w-[300px] flex-col border-r border-border bg-primary p-3">
+        {isPurchaseGuide && (
+          <div className="mb-2 rounded-lg border-2 border-info bg-info/10 p-2.5">
+            <div className="inline-flex rounded-full bg-info px-2 py-0.5 text-[10px] font-bold text-white">
+              Station 已接收本批任务
+            </div>
+            <p className="mt-2 text-xs font-semibold text-text-primary">执行自动检测</p>
+            <p className="mt-1 text-[10px] leading-relaxed text-text-secondary">
+              按中间高亮按钮开始检测，系统会依次完成视觉点数、标签、OCR、重量估算和 NG 判定。
+            </p>
+          </div>
+        )}
         <div className="flex items-center gap-2.5">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-info/20">
             <Monitor className="h-5 w-5 text-info" />
@@ -469,7 +516,7 @@ const StationIdle: FC = () => {
           <span className="text-[10px] text-text-secondary">件</span>
         </div>
 
-        {pendingEvents.length > 0 && (
+        {displayPendingEvents.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -478,11 +525,11 @@ const StationIdle: FC = () => {
             <div className="flex items-center gap-1.5">
               <AlertOctagon className="h-3.5 w-3.5 text-danger" />
               <span className="text-[11px] font-medium text-danger">
-                {pendingEvents.length} 条待确认异常
+                {displayPendingEvents.length} 条待确认异常
               </span>
             </div>
             <div className="mt-1 space-y-0.5">
-              {pendingEvents.map((e) => (
+              {displayPendingEvents.map((e) => (
                 <div
                   key={e.eventNo}
                   className="truncate text-[10px] leading-tight text-text-secondary"
@@ -523,10 +570,14 @@ const StationIdle: FC = () => {
           <div className="flex items-center gap-1.5">
             <Weight className="h-3.5 w-3.5 text-warning" />
             <span className="text-[11px] font-semibold text-warning">散装估算</span>
-            <span className="ml-auto font-data text-[11px] text-text-primary">24.2kg / 4.03kg</span>
+            <span className="ml-auto font-data text-[11px] text-text-primary">
+              {isPurchaseGuide ? '5.2kg / 4.1kg' : '24.2kg / 4.03kg'}
+            </span>
           </div>
           <p className="mt-1 text-[10px] text-text-secondary">
-            非整托物料按重力台读数估算数量，差异超过 3% 自动转人工复核。
+            {isPurchaseGuide
+              ? `${purchaseReceiveGuide.damagedMaterialName} 按重力台读数估算为 1 件，后续由 PDA 复核标签问题。`
+              : '非整托物料按重力台读数估算数量，差异超过 3% 自动转人工复核。'}
           </p>
         </div>
 
@@ -592,9 +643,9 @@ const StationIdle: FC = () => {
         </div>
       </div>
 
-      {/* CENTER COLUMN: NEXT banner / live camera / pipeline / queue */}
+      {/* CENTER COLUMN: 待检提示栏 / live camera / pipeline / queue */}
       <div className="flex flex-1 flex-col gap-2 overflow-hidden bg-[#F1F5F9] p-3">
-        {/* Zone A: NEXT banner */}
+        {/* Zone A: 待检提示栏 */}
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -632,7 +683,7 @@ const StationIdle: FC = () => {
             {isFinished ? (
               <>
                 <p className="text-xs font-semibold text-success">
-                  演示完成，4 件全部检测结束
+                  本批检测完成
                 </p>
                 <p className="mt-1 text-[10px] text-text-muted">
                   通过 {player.todayStats.pass - 20} · 警示{' '}
@@ -648,7 +699,7 @@ const StationIdle: FC = () => {
                       isPlaying ? 'bg-info animate-pulse' : 'bg-info',
                     )}
                   >
-                    {isPlaying ? '检测中' : isAwaitingL2Action ? 'L2' : isReviewingPass ? '通过' : 'NEXT'}
+                    {isPlaying ? '检测中' : isAwaitingL2Action ? 'L2' : isReviewingPass ? '通过' : '待检'}
                   </span>
                   <span className="text-xs font-semibold text-text-primary">
                     {isPlaying
@@ -687,14 +738,34 @@ const StationIdle: FC = () => {
           {!isFinished && (
             <div className="flex items-center gap-1.5 text-text-muted">
               <Clock className="h-3.5 w-3.5" />
-              <span className="font-mono text-[11px]">
-                队列 {player.cursor + 1}/{detectionScript.length}
-              </span>
+              <span className="text-[11px]">待检队列运行中</span>
             </div>
           )}
 
           {renderMainButton()}
         </motion.div>
+
+        {isPurchaseGuide && player.phase !== 'detecting' && (
+          <div className="rounded-lg border border-info/30 bg-info/10 px-3 py-2">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs text-text-secondary">
+                {hasDetectionResult
+                  ? currentOutcome === 'pass'
+                    ? '检测结果已通过。点击右侧确认通过，继续检测同批次下一件。'
+                    : '检测结果已生成。该件需要进入 PDA 人工复核。'
+                  : '按右侧高亮按钮开始检测。'}
+              </p>
+              {shouldSendToPdaReview && (
+                <button
+                  onClick={() => navigate('/pda/problem/handover?scenario=purchase-receive')}
+                  className="shrink-0 rounded bg-info px-3 py-1.5 text-xs font-semibold text-white"
+                >
+                  转 PDA 复核处理
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Zone B: Live camera with detection overlay */}
         <CameraPreview
@@ -709,7 +780,7 @@ const StationIdle: FC = () => {
           imageUrl={
             player.currentItem
               ? player.currentItem.cameraImageUrl
-              : nextItem?.cameraImageUrl ?? '/images/station-cam/cam-01-shelf-overview.jpg'
+              : nextItem?.cameraImageUrl ?? '/images/purchase-receive-station-overhead.png'
           }
           overlayBoxes={player.currentItem?.boxes}
           revealedBoxIds={player.revealedBoxIds}
@@ -746,15 +817,15 @@ const StationIdle: FC = () => {
             <Boxes className="h-3.5 w-3.5 text-text-secondary" />
             <h3 className="text-[11px] font-semibold text-text-primary">待检任务队列</h3>
             <span className="rounded bg-[#F1F5F9] px-1.5 py-0.5 text-[10px] text-text-muted">
-              剩余 {Math.max(0, detectionScript.length - player.cursor)} 件
+              剩余 {Math.max(0, activeScript.length - displayCursor)} 件
             </span>
-            {player.cursor > 0 && !isFinished && (
+            {displayCursor > 0 && !isFinished && (
               <button
                 onClick={player.resetScript}
                 className="ml-auto flex items-center gap-1 text-[11px] text-text-muted transition-colors hover:text-text-primary"
               >
                 <RotateCcw className="h-3 w-3" />
-                重置剧本
+                重置任务
               </button>
             )}
             {isFinished && (
@@ -763,7 +834,7 @@ const StationIdle: FC = () => {
                 className="ml-auto flex items-center gap-1 text-[11px] text-info transition-colors hover:text-info/80"
               >
                 <RotateCcw className="h-3 w-3" />
-                重置剧本
+                重新检测
               </button>
             )}
           </div>
@@ -787,7 +858,7 @@ const StationIdle: FC = () => {
                     outcome={completedItem.outcome}
                   />
                 )}
-                {remainingScript.map((it, i) => (
+                {remainingScript.map((it: ScriptedItem, i: number) => (
                   <QueueItem
                     key={it.orderNo}
                     orderNo={it.orderNo}
@@ -898,7 +969,7 @@ const StationIdle: FC = () => {
                 streamLines={player.streamLines}
                 pushedBadges={player.pushedBadges}
                 workOrderMessage={player.workOrderMessage}
-                totalCount={detectionScript.length}
+                totalCount={activeScript.length}
                 cursor={player.cursor}
                 onApprovePass={player.approvePass}
                 onAssignL2Review={player.assignL2Review}

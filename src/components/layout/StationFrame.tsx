@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { FC } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route, useLocation, useSearchParams } from 'react-router-dom';
 import { Monitor, Settings, Bell, Wifi } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { EntrySidebar } from '@/components/layout/EntrySidebar';
@@ -36,7 +36,9 @@ const MIN_SCALE = 0.4;
 
 export const StationFrame: FC<StationFrameProps> = ({ className }) => {
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const currentMode = modeLabels[location.pathname] || modeLabels['/station'];
+  const isPurchaseGuide = searchParams.get('scenario') === 'purchase-receive';
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
 
@@ -123,7 +125,7 @@ export const StationFrame: FC<StationFrameProps> = ({ className }) => {
               <span className="font-mono text-sm text-text-secondary">10:24:36</span>
               <div className="flex items-center gap-1.5 text-text-muted">
                 <Bell className="h-4 w-4" />
-                <span className="text-xs font-medium">3</span>
+                <span className="text-xs font-medium">{isPurchaseGuide ? '0' : '3'}</span>
               </div>
               <Settings className="h-4 w-4 cursor-pointer text-text-muted transition-colors hover:text-text-secondary" />
             </div>

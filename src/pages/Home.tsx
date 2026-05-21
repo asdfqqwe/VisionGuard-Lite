@@ -7,27 +7,19 @@ import {
   ClipboardCheck,
   TrendingUp,
   Target,
-  Activity,
-  ShieldAlert,
-  Cloud,
-  ShieldCheck,
-  Wallet,
-  Gauge,
-  Zap,
   Workflow,
   BrainCircuit,
   AlertTriangle,
   RefreshCcw,
-  ArrowRight,
 } from 'lucide-react';
 import { dashboardData } from '@/data/mockData';
 import {
   GlobeWithChips,
-  KpiMetricCard,
   TerminalCard,
   SectionTitle,
-  RuntimeStatusCard,
-  ValueCard,
+  CoreCapabilitiesSection,
+  BusinessScenariosSection,
+  Sparkline,
 } from '@/components/home';
 
 // ─── 编排假数据(C1)───
@@ -35,13 +27,6 @@ const KPI_SPARKS = {
   intercept: [820, 940, 880, 1020, 960, 1140, 1247],
   value: [280, 305, 290, 340, 320, 360, 386],
   accuracy: [98.4, 98.7, 99.0, 98.9, 99.3, 99.5, 99.7],
-};
-
-const RUNTIME_SPARKS = {
-  station: [3, 4, 4, 5, 4, 4, 4],
-  pda: [9, 10, 11, 12, 11, 13, 12],
-  exception: [5, 4, 6, 3, 4, 3, 3],
-  l1: [0, 1, 0, 0, 1, 0, 0],
 };
 
 const HERO_FEATURES = [
@@ -64,6 +49,36 @@ const HERO_FEATURES = [
     icon: <RefreshCcw className="h-3.5 w-3.5" />,
     title: '数据闭环',
     desc: '规则供给,持续进化',
+  },
+];
+
+const HERO_KPIS = [
+  {
+    icon: <ClipboardCheck className="h-4 w-4" />,
+    value: dashboardData.todayInterceptCount.toLocaleString(),
+    label: '今日拦截件数',
+    trend: '+12.5%',
+    color: '#3B82F6',
+    valueClass: 'text-[#F2B600]',
+    sparkData: KPI_SPARKS.intercept,
+  },
+  {
+    icon: <TrendingUp className="h-4 w-4" />,
+    value: '¥386万',
+    label: '今日拦截价值',
+    trend: '+8.3%',
+    color: '#EAB308',
+    valueClass: 'text-[#EAB308]',
+    sparkData: KPI_SPARKS.value,
+  },
+  {
+    icon: <Target className="h-4 w-4" />,
+    value: '99.7%',
+    label: 'AI识别准确率',
+    trend: '+0.2%',
+    color: '#22C55E',
+    valueClass: 'text-[#22C55E]',
+    sparkData: KPI_SPARKS.accuracy,
   },
 ];
 
@@ -107,9 +122,9 @@ export default function Home() {
           aria-hidden
         />
 
-        <div className="relative mx-auto grid w-full max-w-[1280px] grid-cols-1 gap-6 px-6 py-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:py-10">
-          {/* 左栏:文案 + KPI + 特性 */}
-          <div className="flex flex-col justify-center">
+        <div className="relative mx-auto grid w-full max-w-[1280px] grid-cols-1 gap-x-8 gap-y-6 px-6 pt-7 pb-4 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:pt-8">
+          {/* 左栏:文案 + KPI */}
+          <div className="flex flex-col justify-center pb-4 lg:pb-0">
             <motion.h1
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -144,58 +159,55 @@ export default function Home() {
               AI驱动的全链路仓储质检 · 从入库到出库 · 拦截每一件异常
             </motion.p>
 
-            {/* KPI 玻璃卡组(带 sparkline + 同比) */}
-            <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <KpiMetricCard
-                icon={<ClipboardCheck className="h-4 w-4" />}
-                value={dashboardData.todayInterceptCount}
-                label="今日拦截件数"
-                trend={12.5}
-                sparkData={KPI_SPARKS.intercept}
-                sparkColor="#3B82F6"
-                delay={300}
-              />
-              <KpiMetricCard
-                icon={<TrendingUp className="h-4 w-4" />}
-                value={386}
-                formatter={(n) => `¥${n}万`}
-                label="今日拦截价值"
-                trend={8.3}
-                sparkData={KPI_SPARKS.value}
-                sparkColor="#EAB308"
-                delay={380}
-              />
-              <KpiMetricCard
-                icon={<Target className="h-4 w-4" />}
-                value={997}
-                formatter={(n) => `${(n / 10).toFixed(1)}%`}
-                label="AI识别准确率"
-                valueColor="text-success"
-                trend={0.2}
-                sparkData={KPI_SPARKS.accuracy}
-                sparkColor="#22C55E"
-                delay={460}
-              />
+            <div className="mt-6 grid max-w-[560px] grid-cols-1 gap-4 sm:grid-cols-3">
+              {HERO_KPIS.map((item, index) => (
+                <motion.div
+                    key={item.label}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.42, delay: 0.34 + index * 0.08, ease: 'easeOut' }}
+                    className="relative min-h-[150px] overflow-hidden rounded-xl border border-white/78 bg-white/88 px-4 py-4 shadow-[0_14px_32px_rgba(15,23,42,0.06)] backdrop-blur-sm"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="flex h-8 w-8 items-center justify-center rounded-lg shadow-[inset_0_0_0_1px_rgba(255,255,255,0.75)] [&>svg]:h-4 [&>svg]:w-4"
+                        style={{ backgroundColor: `${item.color}14`, color: item.color }}
+                      >
+                        {item.icon}
+                      </span>
+                      <span className="text-[12px] font-medium leading-4 text-[#7B8FA8]">{item.label}</span>
+                    </div>
+                    <div className={`mt-4 font-data text-[28px] font-bold leading-none ${item.valueClass}`}>
+                      {item.value}
+                    </div>
+                    <div className="mt-4 flex items-end justify-between gap-3">
+                      <div className="text-[11px] font-semibold text-[#22C55E]">
+                        <span className="block text-[10px] text-[#9AAAC0]">较昨日</span>
+                        {item.trend}
+                      </div>
+                      <Sparkline data={item.sparkData} color={item.color} width={72} height={24} />
+                    </div>
+                </motion.div>
+              ))}
             </div>
 
-            {/* 4 个特性 */}
-            <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="mt-11 grid max-w-[790px] grid-cols-2 gap-x-8 gap-y-4 sm:grid-cols-4">
               {HERO_FEATURES.map((f, i) => (
                 <motion.div
                   key={f.title}
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4, delay: 0.55 + i * 0.06 }}
-                  className="flex min-h-[58px] items-start gap-2.5 rounded-lg border border-blue-100/65 bg-white/38 px-3 py-2.5 shadow-[0_10px_24px_rgba(59,130,246,0.045)] backdrop-blur-sm"
+                  transition={{ duration: 0.4, delay: 0.58 + i * 0.06 }}
+                  className="flex min-h-[44px] items-start gap-2.5 rounded-lg px-1 py-1.5"
                 >
-                  <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-blue-50/90 text-[#2F80ED] shadow-inner">
+                  <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-50/80 text-[#4C7FD9] shadow-[inset_0_0_0_1px_rgba(147,197,253,0.38)] [&>svg]:h-3.5 [&>svg]:w-3.5">
                     {f.icon}
                   </span>
                   <div className="min-w-0">
-                    <div className="text-[13px] font-semibold text-[#16345C]">
+                    <div className="text-[12px] font-semibold text-[#233B5D]">
                       {f.title}
                     </div>
-                    <div className="mt-0.5 text-[11px] leading-4 text-[#7B8FA8]">{f.desc}</div>
+                    <div className="mt-0.5 whitespace-nowrap text-[10px] leading-4 text-[#7A8CA5]">{f.desc}</div>
                   </div>
                 </motion.div>
               ))}
@@ -203,15 +215,27 @@ export default function Home() {
           </div>
 
           {/* 右栏:地球 + 围绕胶囊 */}
-          <div className="relative flex h-[400px] items-center justify-center lg:h-[480px]">
+          <div className="relative flex h-[390px] items-center justify-center lg:h-[460px]">
             <GlobeWithChips />
           </div>
         </div>
       </section>
 
+      <BusinessScenariosSection />
+
+      <CoreCapabilitiesSection />
+
       {/* ─── 选择终端设备 ─── */}
-      <section className="mx-auto max-w-[1280px] px-6 pt-6 pb-8">
-        <SectionTitle title="选择终端设备" />
+      <section className="mx-auto max-w-[1280px] px-6 pt-8 pb-10">
+        <SectionTitle
+          title={
+            <span className="inline-flex items-center gap-2.5">
+              <span className="h-7 w-1 rounded-full bg-[#155E9F]" aria-hidden />
+              <span>选择终端设备</span>
+            </span>
+          }
+          hideUnderline
+        />
         <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
           <TerminalCard
             icon={<Smartphone className="h-5 w-5" />}
@@ -243,102 +267,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ─── 实时运行状态 ─── */}
-      <section className="mx-auto max-w-[1280px] px-6 py-8">
-        <SectionTitle
-          title="实时运行状态"
-          extra={
-            <div className="flex items-center gap-3">
-              <span>更新时间:2026年5月20日 14:32:18</span>
-              <Link
-                to="/admin/dashboard"
-                className="inline-flex items-center gap-1 rounded-md bg-info/10 px-2.5 py-1 text-info transition-colors hover:bg-info/15"
-              >
-                进入实时监控
-                <ArrowRight className="h-3 w-3" />
-              </Link>
-            </div>
-          }
-        />
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <RuntimeStatusCard
-            icon={<Activity className="h-3.5 w-3.5" />}
-            label="在线Station"
-            value={dashboardData.onlineStations}
-            total={6}
-            tone="success"
-            sparkData={RUNTIME_SPARKS.station}
-            delay={0}
-          />
-          <RuntimeStatusCard
-            icon={<Smartphone className="h-3.5 w-3.5" />}
-            label="在线PDA"
-            value={dashboardData.onlinePDAs}
-            total={18}
-            tone="info"
-            sparkData={RUNTIME_SPARKS.pda}
-            delay={80}
-          />
-          <RuntimeStatusCard
-            icon={<ShieldAlert className="h-3.5 w-3.5" />}
-            label="待处理异常"
-            value={dashboardData.pendingExceptions}
-            unit="件"
-            tone="warning"
-            sparkData={RUNTIME_SPARKS.exception}
-            delay={160}
-          />
-          <RuntimeStatusCard
-            icon={<Cloud className="h-3.5 w-3.5" />}
-            label="L1拦截中"
-            value={dashboardData.l1Intercepting}
-            unit="件"
-            tone={dashboardData.l1Intercepting > 0 ? 'danger' : 'muted'}
-            sparkData={RUNTIME_SPARKS.l1}
-            delay={240}
-          />
-        </div>
-      </section>
-
-      {/* ─── 系统价值 ─── */}
-      <section className="mx-auto max-w-[1280px] px-6 pt-2 pb-10">
-        <SectionTitle title="系统价值" />
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <ValueCard
-            icon={<ShieldCheck className="h-4 w-4" />}
-            label="拦截准确率"
-            value="99.7%"
-            caption="AI智能识别 · 精准拦截"
-            tone="success"
-            delay={0}
-          />
-          <ValueCard
-            icon={<Wallet className="h-4 w-4" />}
-            label="拦截价值(今日)"
-            value="¥386万"
-            caption="减少损失 · 提升品质"
-            tone="accent"
-            delay={80}
-          />
-          <ValueCard
-            icon={<Gauge className="h-4 w-4" />}
-            label="拦截率"
-            value="提升92%"
-            caption="相比人工质检效率"
-            tone="info"
-            delay={160}
-          />
-          <ValueCard
-            icon={<Zap className="h-4 w-4" />}
-            label="异常响应提速"
-            value="提升68%"
-            caption="平均响应时间缩短"
-            tone="info"
-            delay={240}
-          />
-        </div>
-      </section>
-
       {/* ─── Footer (B3) ─── */}
       <footer className="border-t border-border-light/60 bg-[#F1F5F9]">
         <div className="mx-auto flex max-w-[1280px] flex-col items-start justify-between gap-3 px-6 py-5 sm:flex-row sm:items-center">
@@ -350,12 +278,6 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-4 text-xs text-text-muted">
             <span>智见 © 2026 仓储质检AI系统</span>
-            <a className="transition-colors hover:text-text-secondary" href="#">
-              隐私政策
-            </a>
-            <a className="transition-colors hover:text-text-secondary" href="#">
-              使用条款
-            </a>
           </div>
         </div>
       </footer>

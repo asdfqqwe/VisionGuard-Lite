@@ -2,13 +2,11 @@ import type { FC, ReactNode } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import {
   Boxes,
-  ClipboardCheck,
-  ScanLine,
-  Smartphone,
-  MonitorCheck,
+  ClipboardList,
+  Drone,
+  RefreshCcw,
   Truck,
-  ShieldAlert,
-  FileWarning,
+  ShieldCheck,
 } from 'lucide-react';
 import { WarehouseGlobeBackground } from './WarehouseGlobeBackground';
 
@@ -34,14 +32,12 @@ interface ChipDef {
 }
 
 const CHIPS: ChipDef[] = [
-  { pos: 'left-[1%] top-[10%]', label: '供应商来料', icon: <Boxes className="h-3.5 w-3.5" />, tone: 'blue' },
-  { pos: 'left-[-2%] top-[34%]', label: 'PDA巡检', icon: <Smartphone className="h-3.5 w-3.5" />, tone: 'green' },
-  { pos: 'left-[2%] top-[58%]', label: '条码采集', icon: <ScanLine className="h-3.5 w-3.5" />, tone: 'gray' },
-  { pos: 'left-[14%] top-[82%]', label: '到货预约', icon: <ClipboardCheck className="h-3.5 w-3.5" />, tone: 'blue' },
-  { pos: 'right-[1%] top-[10%]', label: 'Station复核', icon: <MonitorCheck className="h-3.5 w-3.5" />, tone: 'blue' },
-  { pos: 'right-[-2%] top-[34%]', label: '出库放行', icon: <Truck className="h-3.5 w-3.5" />, tone: 'blue' },
-  { pos: 'right-[2%] top-[58%]', label: '问题件隔离', icon: <ShieldAlert className="h-3.5 w-3.5" />, tone: 'gold' },
-  { pos: 'right-[14%] top-[82%]', label: '索赔协同', icon: <FileWarning className="h-3.5 w-3.5" />, tone: 'gold' },
+  { pos: 'right-[calc(50%+150px)] top-[14%]', label: '采购到货入库', icon: <Boxes className="h-3.5 w-3.5" />, tone: 'blue' },
+  { pos: 'right-[calc(50%+178px)] top-[42%]', label: '生产退料入库', icon: <RefreshCcw className="h-3.5 w-3.5" />, tone: 'green' },
+  { pos: 'right-[calc(50%+162px)] top-[70%]', label: '在库循环盘点', icon: <ClipboardList className="h-3.5 w-3.5" />, tone: 'gray' },
+  { pos: 'left-[calc(50%+150px)] top-[14%]', label: '出库发货复核', icon: <Truck className="h-3.5 w-3.5" />, tone: 'blue' },
+  { pos: 'left-[calc(50%+178px)] top-[42%]', label: '仓库日常质量抽检', icon: <ShieldCheck className="h-3.5 w-3.5" />, tone: 'gold' },
+  { pos: 'left-[calc(50%+162px)] top-[70%]', label: '无人机巡检+AGV', icon: <Drone className="h-3.5 w-3.5" />, tone: 'green' },
 ];
 
 const SPARKS = [
@@ -74,7 +70,7 @@ export const GlobeWithChips: FC = () => {
       <div
         ref={wrapperRef}
         className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
-        style={{ width: 'min(100%, 540px)', aspectRatio: '1 / 1' }}
+        style={{ width: 'min(94%, 500px)', aspectRatio: '1 / 1' }}
       >
         {/* 底部投影,用来托起球体的立体感。 */}
         <div

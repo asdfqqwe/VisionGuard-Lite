@@ -53,10 +53,10 @@ export const AdminFrame: FC = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="flex min-h-[100dvh] bg-primary">
+    <div className="flex h-[100dvh] overflow-hidden bg-primary">
       <EntrySidebar />
       {/* Left Sidebar */}
-      <aside className="fixed left-16 top-0 z-40 flex h-screen w-[220px] flex-col border-r border-border-light bg-[#F1F5F9]">
+      <aside className="fixed left-16 top-0 z-40 flex h-[100dvh] w-[220px] flex-col border-r border-border-light bg-[#F1F5F9]">
         {/* Logo */}
         <div className="flex h-14 items-center gap-2.5 px-4 border-b border-border-light">
           <div className="flex h-7 w-7 items-center justify-center rounded-md bg-accent">
@@ -117,9 +117,9 @@ export const AdminFrame: FC = () => {
       </aside>
 
       {/* Main Content */}
-      <main className="ml-[284px] flex-1 min-h-[100dvh]">
+      <main className="ml-[284px] flex h-[100dvh] min-w-0 flex-1 flex-col overflow-hidden">
         {/* Header bar */}
-        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border-light bg-primary/90 px-6 backdrop-blur-sm">
+        <header className="z-30 flex h-14 shrink-0 items-center justify-between border-b border-border-light bg-primary/90 px-6 backdrop-blur-sm">
           <div className="flex items-center gap-2">
             <h2 className="text-sm font-medium text-text-primary">
               {menuItems.find((m) => m.path === location.pathname)?.label || '管理后台'}
@@ -138,7 +138,7 @@ export const AdminFrame: FC = () => {
         </header>
 
         {/* Content */}
-        <div className="min-h-[calc(100dvh-56px)]">
+        <div className="min-h-0 flex-1 overflow-y-auto">
           <Outlet />
         </div>
       </main>

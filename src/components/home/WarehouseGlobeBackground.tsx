@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Globe from 'react-globe.gl';
 import type { GlobeMethods } from 'react-globe.gl';
-import { MeshPhongMaterial, Color } from 'three';
+import { CanvasTexture, Color, MeshPhongMaterial, RepeatWrapping } from 'three';
 
 /**
  * 3D 地球 + 飞线背景。基于 react-globe.gl。
  *
- * 视觉特征(对齐参考图):
+ * 视觉特征(参考设计图):
  *  - 浅色调:白色半透明陆地 + 极浅蓝灰球面
  *  - 经纬网格(graticules)
  *  - 蓝色大气层光晕
@@ -52,6 +52,116 @@ interface CountryFeature {
   geometry: { type: string; coordinates: unknown };
 }
 
+function createOceanGridTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 1024;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d');
+
+  if (!ctx) {
+    return new CanvasTexture(canvas);
+  }
+
+  const bg = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+  bg.addColorStop(0, '#EAF4FF');
+  bg.addColorStop(0.48, '#DCEBFF');
+  bg.addColorStop(1, '#F5FBFF');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.lineCap = 'round';
+
+  for (let lng = -180; lng <= 180; lng += 15) {
+    const x = ((lng + 180) / 360) * canvas.width;
+    ctx.beginPath();
+    ctx.strokeStyle =
+      lng % 45 === 0 ? 'rgba(88, 141, 213, 0.18)' : 'rgba(88, 141, 213, 0.1)';
+    ctx.lineWidth = lng % 45 === 0 ? 1.1 : 0.75;
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, canvas.height);
+    ctx.stroke();
+  }
+
+  for (let lat = -75; lat <= 75; lat += 15) {
+    const y = ((90 - lat) / 180) * canvas.height;
+    ctx.beginPath();
+    ctx.strokeStyle =
+      lat % 45 === 0 ? 'rgba(88, 141, 213, 0.16)' : 'rgba(88, 141, 213, 0.09)';
+    ctx.lineWidth = lat % 45 === 0 ? 1.05 : 0.7;
+    ctx.moveTo(0, y);
+    ctx.lineTo(canvas.width, y);
+    ctx.stroke();
+  }
+
+  const texture = new CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  texture.anisotropy = 4;
+  return texture;
+}
+
+function createLandWeaveTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+
+  if (!ctx) {
+    return new CanvasTexture(canvas);
+  }
+
+  ctx.fillStyle = 'rgba(190, 216, 252, 0.72)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  for (let x = 0; x <= canvas.width; x += 3) {
+    ctx.beginPath();
+    ctx.strokeStyle =
+      x % 12 === 0 ? 'rgba(38, 91, 184, 0.66)' : 'rgba(38, 91, 184, 0.46)';
+    ctx.lineWidth = x % 12 === 0 ? 1.55 : 1.08;
+    ctx.moveTo(x + 0.5, 0);
+    ctx.lineTo(x + 0.5, canvas.height);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.lineWidth = 0.62;
+    ctx.moveTo(x + 1.5, 0);
+    ctx.lineTo(x + 1.5, canvas.height);
+    ctx.stroke();
+  }
+
+  for (let y = 0; y <= canvas.height; y += 3) {
+    ctx.beginPath();
+    ctx.strokeStyle =
+      y % 12 === 0 ? 'rgba(38, 91, 184, 0.58)' : 'rgba(38, 91, 184, 0.4)';
+    ctx.lineWidth = y % 12 === 0 ? 1.4 : 0.96;
+    ctx.moveTo(0, y + 0.5);
+    ctx.lineTo(canvas.width, y + 0.5);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.lineWidth = 0.62;
+    ctx.moveTo(0, y + 1.5);
+    ctx.lineTo(canvas.width, y + 1.5);
+    ctx.stroke();
+  }
+
+  for (let x = 0; x <= canvas.width; x += 6) {
+    for (let y = 0; y <= canvas.height; y += 6) {
+      ctx.fillStyle = 'rgba(29, 78, 168, 0.34)';
+      ctx.fillRect(x, y, 1.85, 1.85);
+    }
+  }
+
+  const texture = new CanvasTexture(canvas);
+  texture.wrapS = RepeatWrapping;
+  texture.wrapT = RepeatWrapping;
+  texture.repeat.set(2.9, 2.9);
+  texture.needsUpdate = true;
+  texture.anisotropy = 8;
+  return texture;
+}
+
 export function WarehouseGlobeBackground({
   width = 520,
   height = 520,
@@ -70,13 +180,28 @@ export function WarehouseGlobeBackground({
   // 球面材质:浅冰蓝玻璃感,让陆地和飞线像浮在球体内部。
   const globeMaterial = useMemo(() => {
     const m = new MeshPhongMaterial();
-    m.color = new Color('#DCEAFF');
+    m.map = createOceanGridTexture();
+    m.color = new Color('#FFFFFF');
     m.emissive = new Color('#C7DCFF');
-    m.emissiveIntensity = 0.34;
+    m.emissiveIntensity = 0.28;
     m.specular = new Color('#FFFFFF');
     m.shininess = 22;
     m.transparent = true;
-    m.opacity = 0.72;
+    m.opacity = 0.76;
+    m.depthWrite = false;
+    return m;
+  }, []);
+
+  const landMaterial = useMemo(() => {
+    const m = new MeshPhongMaterial();
+    m.map = createLandWeaveTexture();
+    m.color = new Color('#FFFFFF');
+    m.emissive = new Color('#9FC4FF');
+    m.emissiveIntensity = 0.07;
+    m.specular = new Color('#F8FBFF');
+    m.shininess = 10;
+    m.transparent = true;
+    m.opacity = 0.92;
     return m;
   }, []);
 
@@ -181,8 +306,8 @@ export function WarehouseGlobeBackground({
       // 球体
       showGlobe={true}
       globeMaterial={globeMaterial}
-      // 经纬网格
-      showGraticules={true}
+      // 经纬线由球面贴图控制,颜色更接近参考图。
+      showGraticules={false}
       // 大气层
       showAtmosphere={true}
       atmosphereColor="#D7E8FF"
@@ -191,9 +316,10 @@ export function WarehouseGlobeBackground({
       polygonsData={countries}
       polygonGeoJsonGeometry={(d: object) => (d as CountryFeature).geometry as never}
       polygonAltitude={0.018}
-      polygonCapColor={() => 'rgba(176,202,241,0.58)'}
+      polygonCapMaterial={landMaterial}
+      polygonCapCurvatureResolution={1.2}
       polygonSideColor={() => 'rgba(122,157,214,0.22)'}
-      polygonStrokeColor={() => 'rgba(93,139,214,0.22)'}
+      polygonStrokeColor={() => 'rgba(93,139,214,0.24)'}
       // 飞线:更细、更亮,像原型图里的浅色轨迹。
       arcsData={arcs}
       arcColor={(d: object) => (d as { color: string[] }).color}

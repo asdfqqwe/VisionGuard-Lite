@@ -1,16 +1,20 @@
 import type { FC } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { traceRecords } from '@/data/mockData';
 import { cn } from '@/lib/utils';
 
 const TraceQuery: FC = () => {
   const navigate = useNavigate();
+  const [query, setQuery] = useState(traceRecords[0]?.barcode ?? 'FX-2026-0331-8842');
 
   return (
     <div className="h-full bg-primary px-4 pt-3 pb-4">
       {/* Input */}
       <div className="mb-4">
         <input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
           placeholder="输入批次号或二维码编号"
           className={cn('h-11 w-full rounded border border-border bg-white px-3 text-sm text-text-primary outline-none', 'placeholder:text-text-muted focus:border-info')}
         />

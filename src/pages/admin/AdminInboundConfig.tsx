@@ -1,5 +1,6 @@
 import type { FC } from 'react';
 import { useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   AlertTriangle,
   CalendarClock,
@@ -19,17 +20,18 @@ import {
 } from 'lucide-react';
 import { PageHeader } from '@/components/admin/PageHeader';
 import { StatusBadge } from '@/components/admin/StatusBadge';
+import { purchaseReceiveGuide } from '@/data/purchaseReceiveGuide';
 
 const appointmentRows = [
   {
-    no: 'APT-001',
-    po: 'PO-007',
-    supplier: '江南华盛',
-    batch: 'L20260315A',
-    sku: '7',
-    qty: '92 件',
+    no: purchaseReceiveGuide.appointmentNo,
+    po: purchaseReceiveGuide.purchaseOrderNo,
+    supplier: purchaseReceiveGuide.supplier,
+    batch: purchaseReceiveGuide.batchNo,
+    sku: purchaseReceiveGuide.skuCount,
+    qty: purchaseReceiveGuide.expectedQty,
     pack: '整托 + 散装',
-    station: 'Station-03',
+    station: purchaseReceiveGuide.stationCode,
     status: '已到货',
   },
   {
@@ -56,21 +58,21 @@ const fieldTemplates = [
 ];
 
 const boxRules = [
-  { name: '整托纸箱', pack: '6 箱/托，12 件/箱', calc: '6 × 12 = 72 件' },
-  { name: '前保险杠', pack: '8 件/架', calc: '按视觉件数确认' },
-  { name: '散装机油', pack: '单桶约 4.03 kg', calc: '总重量 ÷ 单件重量' },
+  { name: purchaseReceiveGuide.scanMaterialName, pack: '6 箱/托，50 EA/箱', calc: '6 × 50 = 300 EA' },
+  { name: purchaseReceiveGuide.ocrMaterialName, pack: '250 件/箱', calc: '按 OCR 数量字段确认' },
+  { name: purchaseReceiveGuide.damagedMaterialName, pack: '单件约 4.1 kg', calc: '称重约 1 件' },
 ];
 
 const ngTypes = [
-  { material: '前保险杠', types: ['划痕', '压痕', '色差'], sample: '126 张' },
-  { material: '动力电池组', types: ['变色', '鼓包', '漏液'], sample: '84 张' },
+  { material: purchaseReceiveGuide.damagedMaterialName, types: ['标签破损', '覆膜遮挡', '边角受压'], sample: '64 张' },
+  { material: purchaseReceiveGuide.ocrMaterialName, types: ['字段缺失', '批次不符', '日期不清晰'], sample: '92 张' },
   { material: '纸箱包装', types: ['破损', '遮挡', '倒置', '错贴'], sample: '210 张' },
 ];
 
 const barcodeBindingRows = [
-  { code: 'PLT-20260315-007', target: 'PO-007 / 托盘', result: '已绑定', owner: 'Station-03' },
-  { code: 'CTN-007-001~006', target: '6 个箱码', result: '已绑定', owner: 'Station-03' },
-  { code: 'BIN-010-02', target: '散装卡扣周转箱', result: '待复核', owner: 'PDA-12' },
+  { code: purchaseReceiveGuide.palletCode, target: `${purchaseReceiveGuide.purchaseOrderNo} / 托盘`, result: '已绑定', owner: purchaseReceiveGuide.stationCode },
+  { code: purchaseReceiveGuide.cartonCode, target: '箱码 / Brake Caliper', result: '已绑定', owner: 'PDA-12' },
+  { code: purchaseReceiveGuide.ocrPartNo, target: 'OCR 标签 / Brake Pad Set', result: '待复核', owner: 'PDA-12' },
 ];
 
 const exceptionPolicies = [
@@ -82,28 +84,28 @@ const exceptionPolicies = [
 
 const qualityTaskRows = [
   {
-    taskNo: 'QI-20260521-01',
-    scope: 'A-01 入库区 / 前保险杠',
-    rule: '按批次随机抽 5 件',
-    samples: '#02、#05、#08、#11、#14',
-    terminal: 'Station-03',
+    taskNo: 'QI-20260522-01',
+    scope: `A-01 入库区 / ${purchaseReceiveGuide.scanMaterialName}`,
+    rule: '整托纸箱点数与箱规核对',
+    samples: '6 / 6 箱',
+    terminal: purchaseReceiveGuide.stationCode,
     status: '待执行',
   },
   {
-    taskNo: 'QI-20260521-02',
-    scope: 'B-07 温控区 / 动力电池组',
-    rule: '高风险物资全检',
-    samples: '2 / 2 件',
-    terminal: 'Station-02',
-    status: '待执行',
-  },
-  {
-    taskNo: 'QI-20260521-03',
-    scope: 'A-04-01 / 丁腈手套',
-    rule: '标签异常后整批排查',
-    samples: '40 / 40 盒',
+    taskNo: 'QI-20260522-02',
+    scope: `A-01 入库区 / ${purchaseReceiveGuide.ocrMaterialName}`,
+    rule: 'OCR 字段抽检',
+    samples: '1 / 1 标签',
     terminal: 'PDA-12',
-    status: '已下发',
+    status: '待执行',
+  },
+  {
+    taskNo: 'QI-20260522-03',
+    scope: `Q-A03 隔离区 / ${purchaseReceiveGuide.damagedMaterialName}`,
+    rule: '标签破损复核',
+    samples: purchaseReceiveGuide.damagedCartonNo,
+    terminal: 'PDA-12',
+    status: '待执行',
   },
 ];
 
@@ -113,10 +115,13 @@ const stationOptions = [
 ] as const;
 
 export const AdminInboundConfig: FC = () => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [stationMode, setStationMode] = useState<(typeof stationOptions)[number]['id']>('station');
   const [inspectionMode, setInspectionMode] = useState<'全检' | '抽检'>('抽检');
   const [sampleRatio, setSampleRatio] = useState(20);
   const [autoCreated, setAutoCreated] = useState(false);
+  const isPurchaseGuide = searchParams.get('scenario') === 'purchase-receive';
 
   const currentStationLabel =
     stationOptions.find((item) => item.id === stationMode)?.label ?? '固定式视觉相机';
@@ -133,6 +138,42 @@ export const AdminInboundConfig: FC = () => {
           </button>
         }
       />
+
+      {isPurchaseGuide && (
+        <div className="mb-6 rounded-xl border-2 border-info bg-info/10 p-4 shadow-[0_0_0_4px_rgba(59,130,246,0.08)]">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="inline-flex rounded-full bg-info px-2.5 py-1 text-[11px] font-bold text-white">
+                采购到货入库
+              </div>
+              <h2 className="mt-3 text-base font-semibold text-text-primary">
+                先确认采购单、供应商、批次、包装方式和检测工位
+              </h2>
+              <p className="mt-1 text-sm text-text-secondary">
+                这里是从首页进入后的起点。确认无误后，把同一批到货交给 PDA 做现场预约登记。
+              </p>
+            </div>
+            <button
+              onClick={() => navigate('/pda/receive/appointment?scenario=purchase-receive')}
+              className="shrink-0 rounded-md bg-info px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-info/80"
+            >
+              交给 PDA 预约登记
+            </button>
+          </div>
+          <div className="mt-4 grid grid-cols-4 gap-3 text-xs">
+            {[
+              `采购单 ${purchaseReceiveGuide.purchaseOrderNo}`,
+              `供应商 ${purchaseReceiveGuide.supplier}`,
+              `托码 ${purchaseReceiveGuide.palletCode}`,
+              `工位 ${purchaseReceiveGuide.stationCode}`,
+            ].map((item) => (
+              <div key={item} className="rounded-md bg-white px-3 py-2 font-semibold text-info">
+                {item}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="mb-6 grid grid-cols-4 gap-4">
         {[
@@ -388,9 +429,9 @@ export const AdminInboundConfig: FC = () => {
           </div>
           <div className="grid grid-cols-3 gap-3">
             {[
-              { label: '总重量', value: '24.2 kg' },
-              { label: '单件重量', value: '4.03 kg' },
-              { label: '估算数量', value: '6 桶' },
+              { label: '总重量', value: '5.2 kg' },
+              { label: '单件重量', value: '4.1 kg' },
+              { label: '估算数量', value: '1 件' },
             ].map((item) => (
               <div key={item.label} className="rounded bg-white p-3">
                 <p className="text-[10px] text-text-muted">{item.label}</p>

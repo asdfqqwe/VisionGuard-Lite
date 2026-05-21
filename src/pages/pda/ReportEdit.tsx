@@ -10,9 +10,9 @@ const handlers = ['收货主管', '质检员', '巡检员', '安全主管', '收
 const ReportEdit: FC = () => {
   const { draftId } = useParams<{ draftId: string }>();
   const navigate = useNavigate();
-  const [anomalyType, setAnomalyType] = useState('');
-  const [handler, setHandler] = useState('');
-  const [notes, setNotes] = useState('');
+  const [anomalyType, setAnomalyType] = useState('标签缺失');
+  const [handler, setHandler] = useState('收货主管');
+  const [notes, setNotes] = useState('外箱标签缺失，现场照片已上传，建议暂存隔离区等待复核。');
   const [submitted, setSubmitted] = useState(false);
 
   const handleSubmit = () => {
@@ -106,7 +106,6 @@ const ReportEdit: FC = () => {
       <div className="mt-6">
         <button
           onClick={handleSubmit}
-          disabled={!anomalyType || !handler}
           className={cn('h-11 w-full rounded-md bg-accent-gradient text-sm font-semibold text-white', 'active:scale-[0.98]')}
         >
           提交上报

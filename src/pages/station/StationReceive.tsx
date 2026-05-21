@@ -1,10 +1,17 @@
 import type { FC } from 'react';
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   CheckCircle2,
   AlertTriangle,
   ScanLine,
+  Barcode,
+  Boxes,
+  Bot,
+  FileText,
+  PlayCircle,
+  RotateCcw,
   Tag,
   PackageX,
   ShieldAlert,
@@ -37,6 +44,392 @@ import {
 } from '@/components/shared';
 import { deliveryOrderPO007 } from '@/data/mockData';
 import type { DetectBox } from '@/components/station/ImageInspectArea';
+
+type CapabilityDemoKey = 'counting' | 'label-check' | 'ocr' | 'barcode';
+
+interface CapabilityDemoConfig {
+  key: CapabilityDemoKey;
+  title: string;
+  subtitle: string;
+  taskNo: string;
+  imageUrl: string;
+  imageFrameClass: string;
+  status: 'pass' | 'warning' | 'danger' | 'tagMissing';
+  readyText: string;
+  infoText: string;
+  boxes: DetectBox[];
+  metrics: { label: string; value: string; tone: string }[];
+  details: { label: string; value: string; tone: string }[];
+  agentLines: string[];
+  suggestion: string;
+}
+
+const capabilityDemoConfigs: Record<CapabilityDemoKey, CapabilityDemoConfig> = {
+  counting: {
+    key: 'counting',
+    title: '视觉自动点数',
+    subtitle: '整托纸箱 · 固定式视觉相机',
+    taskNo: 'CAP-COUNT-0522',
+    imageUrl: '/images/purchase-receive-station-overhead.png',
+    imageFrameClass: 'aspect-[16/9]',
+    status: 'pass',
+    readyText: '固定相机已就绪：等待检测',
+    infoText: '视觉点数：识别 6 个外箱，箱规 50 EA/箱，总数 300 EA',
+    boxes: [
+      { x: 33, y: 18, w: 12, h: 16, label: '箱 #1', confidence: 99.1, type: 'pass' },
+      { x: 46, y: 18, w: 12, h: 16, label: '箱 #2', confidence: 98.6, type: 'pass' },
+      { x: 33, y: 35, w: 12, h: 16, label: '箱 #3', confidence: 98.4, type: 'pass' },
+      { x: 46, y: 35, w: 12, h: 16, label: '箱 #4', confidence: 99.4, type: 'pass' },
+      { x: 33, y: 52, w: 12, h: 16, label: '箱 #5', confidence: 97.8, type: 'pass' },
+      { x: 46, y: 52, w: 12, h: 16, label: '箱 #6', confidence: 98.1, type: 'pass' },
+    ],
+    metrics: [
+      { label: '识别外箱', value: '6 / 6', tone: 'text-success' },
+      { label: '箱规', value: '50 EA', tone: 'text-info' },
+      { label: '总数', value: '300 EA', tone: 'text-success' },
+    ],
+    details: [
+      { label: '托码', value: 'PLT-20260315-007', tone: 'text-success' },
+      { label: '箱码', value: 'CTN-007-001 起', tone: 'text-success' },
+      { label: '包装', value: '整托 / 盒装', tone: 'text-info' },
+      { label: '结果', value: '数量一致', tone: 'text-success' },
+    ],
+    agentLines: [
+      '接收固定相机图像，检测区域为黄色边框内的整托纸箱。',
+      '已识别 6 个外箱，未发现明显遮挡或重叠。',
+      '按箱规 50 EA/箱计算，本托合计 300 EA。',
+      '数量与到货任务一致，建议进入后续标签和 OCR 抽检。',
+    ],
+    suggestion: '数量已确认，可继续执行标签合规检测和关键字段 OCR 抽检。',
+  },
+  'label-check': {
+    key: 'label-check',
+    title: '标签存在性检测',
+    subtitle: '质量抽检点 · 外箱标签复核',
+    taskNo: 'CAP-LABEL-0522',
+    imageUrl: '/images/inspect-gloves-tag-missing.jpg',
+    imageFrameClass: 'aspect-square max-w-[640px]',
+    status: 'tagMissing',
+    readyText: '标签检测相机已就绪：等待检测',
+    infoText: '标签检测：右侧预期贴标区域未识别到产品标签',
+    boxes: [
+      { x: 47, y: 31, w: 39, h: 36, label: '预期标签区缺失', confidence: 91.7, type: 'danger' },
+      { x: 12, y: 26, w: 22, h: 26, label: '箱体印刷', confidence: 96.4, type: 'pass' },
+    ],
+    metrics: [
+      { label: '标签', value: '缺失', tone: 'text-danger' },
+      { label: '箱体', value: '完整', tone: 'text-success' },
+      { label: '风险', value: 'L2', tone: 'text-warning' },
+    ],
+    details: [
+      { label: '物资', value: '丁腈手套', tone: 'text-text-primary' },
+      { label: '位置', value: '右侧贴标区', tone: 'text-warning' },
+      { label: '遮挡', value: '未发现', tone: 'text-success' },
+      { label: '建议', value: '补标后复检', tone: 'text-warning' },
+    ],
+    agentLines: [
+      '图像已接收，外箱表面完整，未发现破损。',
+      '系统在预期贴标区域未识别到产品标签。',
+      '箱体印刷信息可见，但无法替代产品标签字段。',
+      '建议暂缓通过，补贴产品标签后再次检测。',
+    ],
+    suggestion: '该箱缺少产品标签，建议补标并保留复检照片。',
+  },
+  ocr: {
+    key: 'ocr',
+    title: '关键字段 OCR 抽检',
+    subtitle: '箱标近景 · 供应商 / 批次 / 日期',
+    taskNo: 'CAP-OCR-0522',
+    imageUrl: '/images/purchase-receive-ocr-label.png',
+    imageFrameClass: 'aspect-[4/3] max-w-[720px]',
+    status: 'pass',
+    readyText: 'OCR 相机已就绪：等待检测',
+    infoText: 'OCR 抽检：供应商、料号、批次、生产日期、数量、有效期均可读',
+    boxes: [
+      { x: 18, y: 13, w: 34, h: 13, label: '供应商 SUP5678', confidence: 99.0, type: 'pass' },
+      { x: 18, y: 29, w: 34, h: 14, label: '批次 L20260315A', confidence: 98.6, type: 'pass' },
+      { x: 18, y: 44, w: 34, h: 12, label: '生产日期', confidence: 98.2, type: 'pass' },
+      { x: 18, y: 58, w: 34, h: 11, label: '数量 250', confidence: 97.8, type: 'pass' },
+      { x: 52, y: 17, w: 33, h: 18, label: '料号 APX-74218', confidence: 99.1, type: 'pass' },
+      { x: 59, y: 69, w: 27, h: 15, label: '条码', confidence: 98.5, type: 'pass' },
+    ],
+    metrics: [
+      { label: '字段', value: '6 / 6', tone: 'text-success' },
+      { label: '最低置信度', value: '97.8%', tone: 'text-success' },
+      { label: '抽检', value: '通过', tone: 'text-success' },
+    ],
+    details: [
+      { label: '供应商', value: 'SUP5678', tone: 'text-success' },
+      { label: '料号', value: 'APX-74218', tone: 'text-success' },
+      { label: '批次', value: 'L20260315A', tone: 'text-success' },
+      { label: '有效期', value: '2027-03-15', tone: 'text-success' },
+    ],
+    agentLines: [
+      '已锁定箱标主体区域，开始读取关键字段。',
+      '供应商编码 SUP5678、料号 APX-74218、批次 L20260315A 已读取。',
+      '生产日期 2025-03-15、数量 250、有效期 2027-03-15 已读取。',
+      '字段完整且置信度稳定，建议写入抽检记录。',
+    ],
+    suggestion: '箱标字段完整，OCR 结果可作为本批抽检记录。',
+  },
+  barcode: {
+    key: 'barcode',
+    title: '条码自动采集',
+    subtitle: 'PDA 扫码 · 货架多标签采集',
+    taskNo: 'CAP-BARCODE-0522',
+    imageUrl: '/assets/placeholders/capability-barcode.png',
+    imageFrameClass: 'aspect-[16/9]',
+    status: 'pass',
+    readyText: 'PDA 扫码图像已就绪：等待检测',
+    infoText: '条码采集：已锁定 8 处货架标签，7 处可读，1 处需近距补扫',
+    boxes: [
+      { x: 11, y: 39, w: 6, h: 7, label: '左侧箱码', confidence: 96.8, type: 'pass' },
+      { x: 18, y: 38, w: 6, h: 7, label: '左侧箱码', confidence: 96.2, type: 'pass' },
+      { x: 61, y: 36, w: 7, h: 7, label: '右侧箱码', confidence: 97.5, type: 'pass' },
+      { x: 81, y: 16, w: 8, h: 7, label: '上层条码', confidence: 98.4, type: 'pass' },
+      { x: 70, y: 62, w: 7, h: 8, label: '周转箱码', confidence: 95.7, type: 'pass' },
+      { x: 86, y: 62, w: 8, h: 9, label: '近端条码', confidence: 93.1, type: 'warning' },
+    ],
+    metrics: [
+      { label: '采集', value: '7 / 8', tone: 'text-warning' },
+      { label: '重复码', value: '0', tone: 'text-success' },
+      { label: '补扫', value: '1', tone: 'text-warning' },
+    ],
+    details: [
+      { label: '库位', value: 'A-01-02', tone: 'text-info' },
+      { label: '箱码', value: '7 条可读', tone: 'text-success' },
+      { label: '重复', value: '未发现', tone: 'text-success' },
+      { label: '动作', value: '近距补扫', tone: 'text-warning' },
+    ],
+    agentLines: [
+      'PDA 扫码图像已接收，正在锁定货架和周转箱标签。',
+      '已识别 8 处候选条码，其中 7 处读取成功。',
+      '近端右侧标签反光较强，建议靠近补扫一次。',
+      '未发现重复条码或无效条码，采集结果可关联当前库位。',
+    ],
+    suggestion: '先补扫右侧近端标签，再提交本库位采集结果。',
+  },
+};
+
+const isCapabilityDemoKey = (value: string | null): value is CapabilityDemoKey =>
+  value === 'counting' || value === 'label-check' || value === 'ocr' || value === 'barcode';
+
+const DemoAgentPanel: FC<{
+  started: boolean;
+  config: CapabilityDemoConfig;
+}> = ({ started, config }) => {
+  const [visibleText, setVisibleText] = useState('');
+  const fullText = config.agentLines.join('\n');
+  const completed = started && visibleText.length >= fullText.length;
+
+  useEffect(() => {
+    setVisibleText('');
+    if (!started) return undefined;
+
+    let index = 0;
+    const timer = window.setInterval(() => {
+      index += 1;
+      setVisibleText(fullText.slice(0, index));
+      if (index >= fullText.length) {
+        window.clearInterval(timer);
+      }
+    }, 22);
+
+    return () => window.clearInterval(timer);
+  }, [fullText, started]);
+
+  return (
+    <aside className="flex h-full w-[340px] flex-col border-l border-border bg-primary p-3">
+      <div className="flex items-center gap-2">
+        <Bot className="h-4 w-4 text-info" />
+        <h3 className="text-sm font-semibold text-text-primary">Agent 识别建议</h3>
+        <span className={cn('ml-auto rounded px-2 py-0.5 text-[10px] font-semibold', started ? 'bg-info/15 text-info' : 'bg-text-muted/15 text-text-muted')}>
+          {started ? (completed ? '已完成' : '识别中') : '待检测'}
+        </span>
+      </div>
+
+      <div className="mt-3 min-h-[220px] rounded-lg bg-[#F8FAFC] p-3">
+        {started ? (
+          <div className="space-y-2">
+            {visibleText.split('\n').map((line, index) => (
+              <p key={`${line}-${index}`} className="text-xs leading-relaxed text-text-secondary">
+                {line}
+                {index === visibleText.split('\n').length - 1 && !completed && (
+                  <span className="ml-0.5 inline-block animate-pulse text-info">▍</span>
+                )}
+              </p>
+            ))}
+          </div>
+        ) : (
+          <div className="flex h-[190px] items-center justify-center text-center">
+            <div>
+              <PlayCircle className="mx-auto h-9 w-9 text-info/45" />
+              <p className="mt-3 text-xs text-text-muted">点击开始检测后显示识别过程</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        {config.metrics.map((item) => (
+          <div key={item.label} className="rounded bg-[#F1F5F9] px-2 py-2 text-center">
+            <p className="text-[10px] text-text-muted">{item.label}</p>
+            <p className={cn('mt-1 font-data text-sm font-bold', started ? item.tone : 'text-text-muted')}>
+              {started ? item.value : '--'}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-3 rounded-lg bg-[#F1F5F9] p-3">
+        <h4 className="text-xs font-semibold text-text-primary">识别明细</h4>
+        <div className="mt-2 space-y-2">
+          {config.details.map((item) => (
+            <div key={item.label} className="flex items-center justify-between rounded bg-white px-3 py-2 text-xs">
+              <span className="text-text-muted">{item.label}</span>
+              <span className={cn('font-semibold', started ? item.tone : 'text-text-muted')}>
+                {started ? item.value : '待识别'}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {completed && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={cn(
+            'mt-3 rounded-lg border p-3',
+            config.status === 'pass' ? 'border-success/30 bg-success/10' : 'border-warning/40 bg-warning/10',
+          )}
+        >
+          <div className="flex items-center gap-2">
+            {config.status === 'pass' ? (
+              <CheckCircle2 className="h-4 w-4 text-success" />
+            ) : (
+              <AlertTriangle className="h-4 w-4 text-warning" />
+            )}
+            <span className={cn('text-xs font-semibold', config.status === 'pass' ? 'text-success' : 'text-warning')}>
+              Agent 建议
+            </span>
+          </div>
+          <p className="mt-2 text-xs leading-relaxed text-text-secondary">{config.suggestion}</p>
+        </motion.div>
+      )}
+    </aside>
+  );
+};
+
+const CapabilityDemoStation: FC<{ config: CapabilityDemoConfig }> = ({ config }) => {
+  const [started, setStarted] = useState(false);
+
+  useEffect(() => {
+    setStarted(false);
+  }, [config.key]);
+
+  return (
+    <div className="grid h-full grid-cols-[300px_1fr_340px] bg-primary">
+      <aside className="flex min-h-0 flex-col border-r border-border bg-primary p-3">
+        <div className="rounded-lg bg-[#F1F5F9] p-3">
+          <div className="flex items-center gap-2">
+            {config.key === 'counting' && <Boxes className="h-4 w-4 text-info" />}
+            {config.key === 'label-check' && <Tag className="h-4 w-4 text-info" />}
+            {config.key === 'ocr' && <FileText className="h-4 w-4 text-info" />}
+            {config.key === 'barcode' && <Barcode className="h-4 w-4 text-info" />}
+            <h2 className="text-sm font-semibold text-text-primary">{config.title}</h2>
+          </div>
+          <p className="mt-2 text-xs text-text-secondary">{config.subtitle}</p>
+          <div className="mt-3 rounded bg-white px-3 py-2">
+            <p className="text-[10px] text-text-muted">任务编号</p>
+            <p className="mt-1 font-data text-xs font-semibold text-info">{config.taskNo}</p>
+          </div>
+        </div>
+
+        <div className="mt-3 rounded-lg bg-[#F1F5F9] p-3">
+          <h3 className="text-xs font-semibold text-text-primary">检测项</h3>
+          <div className="mt-2 space-y-2">
+            {config.details.map((item) => (
+              <div key={item.label} className="rounded bg-white px-3 py-2">
+                <p className="text-[10px] text-text-muted">{item.label}</p>
+                <p className={cn('mt-1 text-xs font-semibold', started ? item.tone : 'text-text-primary')}>
+                  {started ? item.value : '待识别'}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-auto rounded-lg border border-info/25 bg-info/10 p-3">
+          <p className="text-xs font-semibold text-text-primary">{started ? '检测已启动' : '检测待启动'}</p>
+          <p className="mt-1 text-[11px] leading-relaxed text-text-secondary">
+            {started ? config.infoText : config.readyText}
+          </p>
+        </div>
+      </aside>
+
+      <main className="flex min-h-0 flex-col gap-3 bg-[#F1F5F9] p-3">
+        <div className="flex items-center justify-between rounded-lg border border-info/25 bg-primary px-4 py-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="rounded bg-info px-2 py-0.5 text-[11px] font-bold text-white">DEMO</span>
+              <h1 className="text-sm font-semibold text-text-primary">{config.title}</h1>
+              <span className="font-data text-xs text-text-muted">{config.taskNo}</span>
+            </div>
+            <p className="mt-1 text-xs text-text-muted">{started ? config.infoText : config.readyText}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setStarted((value) => !value)}
+            className={cn(
+              'flex items-center gap-1.5 rounded-md px-3 py-2 text-xs font-semibold transition-colors',
+              started
+                ? 'bg-[#F1F5F9] text-text-secondary hover:bg-gray-100'
+                : 'bg-info text-white hover:bg-info/90',
+            )}
+          >
+            {started ? <RotateCcw className="h-4 w-4" /> : <PlayCircle className="h-4 w-4" />}
+            {started ? '重新检测' : '开始检测'}
+          </button>
+        </div>
+
+        <section className={cn('mx-auto flex min-h-0 w-full flex-1 flex-col', config.imageFrameClass)}>
+          <ImageInspectArea
+            imageUrl={config.imageUrl}
+            boxes={started ? config.boxes : []}
+            status={started ? config.status : 'warning'}
+            infoText={started ? config.infoText : config.readyText}
+            overlayContent={
+              !started ? (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="relative h-[58%] w-[58%]">
+                    <span className="absolute left-0 top-0 h-5 w-5 border-l-2 border-t-2 border-info" />
+                    <span className="absolute right-0 top-0 h-5 w-5 border-r-2 border-t-2 border-info" />
+                    <span className="absolute bottom-0 left-0 h-5 w-5 border-b-2 border-l-2 border-info" />
+                    <span className="absolute bottom-0 right-0 h-5 w-5 border-b-2 border-r-2 border-info" />
+                  </div>
+                </div>
+              ) : undefined
+            }
+          />
+        </section>
+
+        <section className="grid grid-cols-3 gap-3">
+          {config.metrics.map((item) => (
+            <div key={item.label} className="rounded-lg bg-primary p-3">
+              <p className="text-[11px] text-text-muted">{item.label}</p>
+              <p className={cn('mt-1 font-data text-lg font-bold', started ? item.tone : 'text-text-muted')}>
+                {started ? item.value : '--'}
+              </p>
+            </div>
+          ))}
+        </section>
+      </main>
+
+      <DemoAgentPanel started={started} config={config} />
+    </div>
+  );
+};
 
 // ─── State configurations ───
 interface StateConfig {
@@ -321,7 +714,7 @@ const batchCheckRows = [
 const showAlertStates: DetectionState[] = ['tagMissing', 'defect', 'intercept', 'multiModal'];
 
 // ─── Main component ───
-const StationReceive: FC = () => {
+const StationReceiveDefault: FC = () => {
   const [currentState, setCurrentState] = useState<DetectionState>('pass');
   const [alertOpen, setAlertOpen] = useState(false);
   const [beepEnabled, setBeepEnabled] = useState(true);
@@ -923,6 +1316,17 @@ const StationReceive: FC = () => {
       </AnimatePresence>
     </div>
   );
+};
+
+const StationReceive: FC = () => {
+  const [searchParams] = useSearchParams();
+  const demo = searchParams.get('demo');
+
+  if (isCapabilityDemoKey(demo)) {
+    return <CapabilityDemoStation config={capabilityDemoConfigs[demo]} />;
+  }
+
+  return <StationReceiveDefault />;
 };
 
 export default StationReceive;

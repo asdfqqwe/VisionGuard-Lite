@@ -1,26 +1,29 @@
 import type { FC } from 'react';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { postPurchaseSyncStatus } from '@/api/mockApi';
+import { purchaseReceiveGuide } from '@/data/purchaseReceiveGuide';
 
-const suppliers = ['华东物流', '江南华盛', '精工汽配', '环球物流'];
+const suppliers = ['ABC Manufacturing Inc.', '华东物流', '江南华盛', '精工汽配', '环球物流'];
 const timeSlots = ['08:00-10:00', '10:00-12:00', '13:00-15:00', '15:00-17:00', '17:00-19:00'];
 const stationOptions = ['固定式视觉相机', '移动视觉 PDA'];
 const packagingOptions = ['散装', '盒装', '整托', '整托+散装'];
 
 const ReceiveAppointment: FC = () => {
   const navigate = useNavigate();
-  const [supplier, setSupplier] = useState('');
-  const [deliveryOrder, setDeliveryOrder] = useState('');
-  const [date, setDate] = useState('');
-  const [timeSlot, setTimeSlot] = useState('');
-  const [skuCount, setSkuCount] = useState('');
-  const [packagingMethod, setPackagingMethod] = useState('整托+散装');
-  const [stationMode, setStationMode] = useState('固定式视觉相机');
-  const [skuLines, setSkuLines] = useState('前轮轴承 20件；发动机线束 4件');
-  const [carrier, setCarrier] = useState('');
-  const [notes, setNotes] = useState('');
+  const [searchParams] = useSearchParams();
+  const isPurchaseGuide = searchParams.get('scenario') === 'purchase-receive';
+  const [supplier, setSupplier] = useState<string>(purchaseReceiveGuide.supplier);
+  const [deliveryOrder, setDeliveryOrder] = useState<string>(purchaseReceiveGuide.purchaseOrderNo);
+  const [date, setDate] = useState<string>(purchaseReceiveGuide.date);
+  const [timeSlot, setTimeSlot] = useState<string>(purchaseReceiveGuide.timeSlot);
+  const [skuCount, setSkuCount] = useState<string>(purchaseReceiveGuide.skuCount);
+  const [packagingMethod, setPackagingMethod] = useState<string>(purchaseReceiveGuide.packagingMethod);
+  const [stationMode, setStationMode] = useState<string>(purchaseReceiveGuide.stationMode);
+  const [skuLines, setSkuLines] = useState<string>(purchaseReceiveGuide.skuLines);
+  const [carrier, setCarrier] = useState<string>(purchaseReceiveGuide.carrier);
+  const [notes, setNotes] = useState(`预约车辆已到厂门，按 ${purchaseReceiveGuide.purchaseOrderNo} 批次收货。`);
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async () => {
@@ -32,8 +35,71 @@ const ReceiveAppointment: FC = () => {
       syncData: { supplier, date, timeSlot, skuCount, packagingMethod, stationMode, skuLines, carrier },
     });
     setSubmitting(false);
-    navigate('/pda');
+    navigate(isPurchaseGuide ? '/pda/receive/scan?scenario=purchase-receive' : '/pda/receive/scan');
   };
+
+  if (isPurchaseGuide) {
+    const summaryRows = [
+      { label: '供应商', value: supplier },
+      { label: '采购单', value: deliveryOrder },
+      { label: '预约时间', value: `${date} ${timeSlot}` },
+      { label: '预计 SKU', value: `${skuCount} 个` },
+      { label: '包装方式', value: packagingMethod },
+      { label: '检测工位', value: stationMode },
+      { label: '承运商', value: carrier },
+      { label: '批次说明', value: skuLines },
+    ];
+
+    return (
+      <div className="flex h-full flex-col bg-primary px-4 py-3">
+        <div className="rounded-lg border-2 border-info bg-info/10 p-3 shadow-[0_0_0_3px_rgba(59,130,246,0.08)]">
+          <div className="inline-flex rounded-full bg-info px-2 py-0.5 text-[10px] font-bold text-white">
+            到货信息已带入
+          </div>
+          <h2 className="mt-2 text-sm font-semibold text-text-primary">确认现场预约登记</h2>
+          <p className="mt-1 text-[11px] leading-relaxed text-text-secondary">
+            车辆已到厂门，采购单、供应商、包装方式和检测工位已经填好。
+          </p>
+        </div>
+
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          {summaryRows.slice(0, 6).map((row) => (
+            <div key={row.label} className="rounded-md bg-white px-3 py-2">
+              <p className="text-[10px] text-text-muted">{row.label}</p>
+              <p className="mt-1 truncate text-xs font-semibold text-text-primary">{row.value}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-3 rounded-md bg-white p-3">
+          <div className="grid grid-cols-2 gap-2">
+            {summaryRows.slice(6).map((row) => (
+              <div key={row.label}>
+                <p className="text-[10px] text-text-muted">{row.label}</p>
+                <p className="mt-1 text-xs font-semibold leading-relaxed text-text-primary">{row.value}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-2 rounded bg-success/10 px-2 py-1.5 text-[11px] text-success">
+            PDA 已收到后台配置，可直接进入扫码收货。
+          </p>
+        </div>
+
+        <div className="mt-auto pt-3">
+          <button
+            onClick={handleSubmit}
+            disabled={submitting}
+            className={cn(
+              'h-12 w-full rounded-md bg-accent-gradient text-sm font-semibold text-white shadow-[0_0_0_4px_rgba(245,158,11,0.18)]',
+              'active:scale-[0.98] disabled:opacity-50',
+            )}
+          >
+            {submitting ? '正在确认...' : '确认到货信息'}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full bg-primary px-4 pt-3 pb-4">
@@ -57,7 +123,7 @@ const ReceiveAppointment: FC = () => {
           <input
             value={deliveryOrder}
             onChange={(e) => setDeliveryOrder(e.target.value)}
-            placeholder="输入送货单号"
+            placeholder="送货单号"
             className={cn('h-11 w-full rounded border border-border bg-white px-3 text-sm text-text-primary outline-none placeholder:text-text-muted', 'focus:border-info')}
           />
         </div>
@@ -93,7 +159,7 @@ const ReceiveAppointment: FC = () => {
             type="number"
             value={skuCount}
             onChange={(e) => setSkuCount(e.target.value)}
-            placeholder="输入预计 SKU 数"
+            placeholder="预计 SKU 数"
             className={cn('h-11 w-full rounded border border-border bg-white px-3 text-sm text-text-primary outline-none placeholder:text-text-muted', 'focus:border-info')}
           />
         </div>
@@ -103,7 +169,7 @@ const ReceiveAppointment: FC = () => {
           <textarea
             value={skuLines}
             onChange={(e) => setSkuLines(e.target.value)}
-            placeholder="例：前轮轴承 20件；机油 6桶"
+            placeholder="SKU 明细"
             className={cn('h-16 w-full rounded border border-border bg-white px-3 py-2 text-sm text-text-primary outline-none placeholder:text-text-muted', 'focus:border-info')}
           />
         </div>
@@ -137,7 +203,7 @@ const ReceiveAppointment: FC = () => {
           <input
             value={carrier}
             onChange={(e) => setCarrier(e.target.value)}
-            placeholder="输入承运商名称"
+            placeholder="承运商名称"
             className={cn('h-11 w-full rounded border border-border bg-white px-3 text-sm text-text-primary outline-none placeholder:text-text-muted', 'focus:border-info')}
           />
         </div>
@@ -148,7 +214,7 @@ const ReceiveAppointment: FC = () => {
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="输入备注信息"
+            placeholder="备注信息"
             className={cn('w-full rounded border border-border bg-white px-3 py-2 text-sm text-text-primary outline-none placeholder:text-text-muted', 'h-20 focus:border-info')}
           />
         </div>

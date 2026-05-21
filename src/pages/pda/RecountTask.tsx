@@ -1,7 +1,7 @@
 import type { FC } from 'react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CalendarClock, MonitorCheck, Send, Smartphone } from 'lucide-react';
+import { CalendarClock, MonitorCheck, PlayCircle, Send, Smartphone } from 'lucide-react';
 import { recountTasks } from '@/data/mockData';
 import { cn } from '@/lib/utils';
 
@@ -43,6 +43,23 @@ const RecountTask: FC = () => {
 
   return (
     <div className="h-full bg-primary px-4 pt-3 pb-4">
+      <div className="mb-3 rounded-lg border-2 border-warning bg-warning/10 p-3">
+        <div className="flex items-center gap-2">
+          <PlayCircle className="h-4 w-4 text-warning" />
+          <span className="text-sm font-semibold text-text-primary">在库循环盘点演示</span>
+        </div>
+        <p className="mt-1 text-[11px] leading-relaxed text-text-secondary">
+          推荐处理巡检触发任务 RC-001。点击高亮任务或按钮进入库位核对、数量复点和差异处理。
+        </p>
+        <button
+          onClick={() => navigate('/pda/recount', { state: { taskNo: 'RC-001' } })}
+          className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded bg-warning text-xs font-semibold text-white"
+        >
+          <PlayCircle className="h-4 w-4" />
+          开始盘点复点
+        </button>
+      </div>
+
       {/* Filter tags */}
       <div className="mb-3 flex gap-2 overflow-x-auto">
         {filters.map((f) => (
@@ -70,10 +87,13 @@ const RecountTask: FC = () => {
           const MethodIcon = plan.method === 'Station' ? MonitorCheck : Smartphone;
 
           return (
-            <button
+              <button
               key={task.taskNo}
               onClick={() => navigate('/pda/recount', { state: { taskNo: task.taskNo } })}
-              className="w-full rounded-lg bg-white p-3 text-left transition-all active:scale-[0.98] active:bg-info/10"
+              className={cn(
+                'w-full rounded-lg bg-white p-3 text-left transition-all active:scale-[0.98] active:bg-info/10',
+                task.taskNo === 'RC-001' && 'border-2 border-warning shadow-[0_8px_18px_rgba(245,158,11,0.18)]',
+              )}
             >
               <div className="flex items-center justify-between">
                 <span className="font-data text-sm font-semibold text-info">{task.taskNo}</span>

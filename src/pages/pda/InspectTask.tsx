@@ -1,7 +1,7 @@
 import type { FC } from 'react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ClipboardCheck, ScanLine, Shuffle } from 'lucide-react';
+import { ClipboardCheck, PlayCircle, ScanLine, Shuffle } from 'lucide-react';
 import { inspectionTasks } from '@/data/mockData';
 import { cn } from '@/lib/utils';
 
@@ -62,6 +62,23 @@ const InspectTaskPage: FC = () => {
         <p className="mt-1 text-[11px] text-text-secondary">按后台规则锁定样本，现场逐件扫码、拍照并回传结果。</p>
       </div>
 
+      <div className="mb-3 rounded-lg border-2 border-info bg-info/10 p-3">
+        <div className="flex items-center gap-2">
+          <PlayCircle className="h-4 w-4 text-info" />
+          <span className="text-sm font-semibold text-text-primary">仓库日常质量抽检演示</span>
+        </div>
+        <p className="mt-1 text-[11px] leading-relaxed text-text-secondary">
+          推荐执行前保险杠抽检任务。样本、条码和 OCR 字段已预置，点击下方按钮进入拍照确认。
+        </p>
+        <button
+          onClick={() => navigate('/pda/inspect/check', { state: { taskNo: 'QI-20260521-01' } })}
+          className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded bg-info text-xs font-semibold text-white"
+        >
+          <PlayCircle className="h-4 w-4" />
+          开始质量抽检
+        </button>
+      </div>
+
       {/* Filters */}
       <div className="mb-3 flex gap-2 overflow-x-auto">
         {filters.map((f) => (
@@ -83,7 +100,12 @@ const InspectTaskPage: FC = () => {
           <button
             key={task.taskNo}
             onClick={() => navigate('/pda/inspect/check', { state: { taskNo: task.taskNo } })}
-            className="w-full rounded-lg border border-info/30 bg-white p-3 text-left transition-all active:scale-[0.98] active:bg-info/10"
+            className={cn(
+              'w-full rounded-lg border bg-white p-3 text-left transition-all active:scale-[0.98] active:bg-info/10',
+              task.taskNo === 'QI-20260521-01'
+                ? 'border-2 border-info shadow-[0_8px_18px_rgba(59,130,246,0.18)]'
+                : 'border-info/30',
+            )}
           >
             <div className="flex items-center justify-between">
               <span className="font-data text-sm font-semibold text-info">{task.taskNo}</span>

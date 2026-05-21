@@ -15,8 +15,8 @@ const recountData = [
 const Recount: FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [locationScanned, setLocationScanned] = useState(false);
-  const [barcodeScanned, setBarcodeScanned] = useState(false);
+  const [locationScanned, setLocationScanned] = useState(true);
+  const [barcodeScanned, setBarcodeScanned] = useState(true);
   const [labelStatus, setLabelStatus] = useState<'正常' | '缺失' | '破损'>('正常');
   const [detectionMode, setDetectionMode] = useState<'pda' | 'station'>('pda');
   const state = location.state as { taskNo?: string; actualQuantity?: number } | null;
@@ -75,6 +75,34 @@ const Recount: FC = () => {
           <div className="mt-1 font-data text-xs text-text-secondary">SKU-{recountTask.taskNo.replace('RC-', 'INV-')}</div>
           {barcodeScanned && <div className="mt-1 text-[11px] text-success">物资匹配</div>}
         </button>
+      </div>
+
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        <button
+          onClick={() => navigate('/station/recount?scenario=recount')}
+          className="flex h-10 items-center justify-center rounded bg-info text-[11px] font-semibold text-white"
+        >
+          Station 复核
+        </button>
+        <button
+          onClick={() => navigate('/pda/recount/result', { state: { taskNo: recountTask.taskNo } })}
+          className="flex h-10 items-center justify-center rounded bg-warning text-[11px] font-semibold text-white"
+        >
+          处理差异
+        </button>
+        <button
+          onClick={() => navigate('/pda')}
+          className="flex h-10 items-center justify-center rounded bg-success text-[11px] font-semibold text-white"
+        >
+          确认无误
+        </button>
+      </div>
+
+      <div className="mt-3 rounded-lg border border-warning/30 bg-warning/10 p-3">
+        <p className="text-xs font-semibold text-text-primary">下一步操作</p>
+        <p className="mt-1 text-[11px] leading-relaxed text-text-secondary">
+          当前库位和货物条码已预填确认。可直接处理数量差异，或送 Station 做整箱视觉复核。
+        </p>
       </div>
 
       <div className="mt-3 rounded-lg bg-white p-3">
@@ -197,20 +225,18 @@ const Recount: FC = () => {
       <div className="mt-6 flex gap-3">
         <button
           onClick={() => navigate('/pda/recount/result', { state: { taskNo: recountTask.taskNo } })}
-          disabled={!readyToSubmit}
           className={cn(
             'flex h-11 flex-1 items-center justify-center rounded text-sm font-semibold text-white',
-            readyToSubmit ? 'bg-warning' : 'bg-warning/40',
+            'bg-warning',
           )}
         >
           处理差异
         </button>
         <button
           onClick={() => navigate('/pda')}
-          disabled={!readyToSubmit || labelStatus !== '正常'}
           className={cn(
             'flex h-11 flex-1 items-center justify-center rounded text-sm font-semibold text-white',
-            readyToSubmit && labelStatus === '正常' ? 'bg-success' : 'bg-success/40',
+            labelStatus === '正常' ? 'bg-success' : 'bg-success/40',
           )}
         >
           确认无误

@@ -9,6 +9,7 @@ const TraceVerify: FC = () => {
   const navigate = useNavigate();
   const [verified, setVerified] = useState(false);
   const [record, setRecord] = useState<typeof traceRecords[0] | null>(null);
+  const [traceCode, setTraceCode] = useState(traceRecords[0]?.barcode ?? 'FX-2026-0331-8842');
 
   const handleVerify = () => {
     setRecord(traceRecords[0]);
@@ -36,6 +37,8 @@ const TraceVerify: FC = () => {
 
           <div className="mt-4">
             <input
+              value={traceCode}
+              onChange={(event) => setTraceCode(event.target.value)}
               placeholder="输入二维码编号"
               className={cn('h-11 w-full rounded border border-border bg-white px-3 text-sm text-text-primary outline-none', 'placeholder:text-text-muted focus:border-info')}
             />

@@ -1,7 +1,7 @@
 /**
  * 右栏流式 Agent 推理面板。
  *
- * 检测中态：顶部显示当前物品 + 进度，主体是 5 行 step 流式打字（光标 / 完成 ✓ / chips）。
+ * 检测中态：顶部显示当前物品，主体是推理流式打字（光标 / 完成 / chips）。
  * 综合判定完成后追加：AI 判断摘要卡 + Agent 处置建议卡（含 L1/L2/通过 三种色调）。
  * 工单消息（L1 用户点"创建工单"后）追加在最末。
  */
@@ -23,9 +23,9 @@ interface AgentStreamPanelProps {
   streamLines: StreamLine[];
   pushedBadges: DetectionPlayerState['pushedBadges'];
   workOrderMessage: string | null;
-  /** 用于 finished 阶段展示总数 */
+  /** 用于 finished 阶段展示批次规模 */
   totalCount: number;
-  /** 用于 finished 阶段展示当前指针 */
+  /** 与检测播放器状态保持一致 */
   cursor: number;
   onApprovePass: () => void;
   onAssignL2Review: () => void;
@@ -118,7 +118,7 @@ const StreamRow: FC<{ line: StreamLine; outcome: ScriptedItem['outcome'] }> = ({
       transition={{ duration: 0.15 }}
       className="flex gap-2"
     >
-      {/* 步骤序号 / 状态点 */}
+      {/* 状态点 */}
       <div className="flex w-4 shrink-0 flex-col items-center pt-0.5">
         <span
           className={cn(
@@ -128,7 +128,7 @@ const StreamRow: FC<{ line: StreamLine; outcome: ScriptedItem['outcome'] }> = ({
               : 'bg-info/20 text-info',
           )}
         >
-          {line.done ? <Check className="h-2.5 w-2.5" /> : line.step + 1}
+          {line.done ? <Check className="h-2.5 w-2.5" /> : <span className="h-1.5 w-1.5 rounded-full bg-current" />}
         </span>
       </div>
 
@@ -163,7 +163,6 @@ export const AgentStreamPanel: FC<AgentStreamPanelProps> = ({
   pushedBadges,
   workOrderMessage,
   totalCount,
-  cursor,
   onApprovePass,
   onAssignL2Review,
   onHoldL2Review,
@@ -175,9 +174,9 @@ export const AgentStreamPanel: FC<AgentStreamPanelProps> = ({
     return (
       <div className="flex flex-1 flex-col items-center justify-center text-center">
         <CheckCircle2 className="h-10 w-10 text-success" />
-        <h4 className="mt-3 text-sm font-semibold text-text-primary">演示完成</h4>
+        <h4 className="mt-3 text-sm font-semibold text-text-primary">本批检测完成</h4>
         <p className="mt-1 text-[11px] text-text-muted">
-          已完成 {totalCount} 件检测，可点击下方按钮重置剧本
+          已完成 {totalCount} 件检测，可重新发起本批任务
         </p>
       </div>
     );
@@ -199,11 +198,11 @@ export const AgentStreamPanel: FC<AgentStreamPanelProps> = ({
             <span className="ml-1 text-text-muted">· {currentItem.qty}</span>
           </p>
           <p className="font-mono text-[10px] text-text-muted">
-            {currentItem.orderNo} · 第 {cursor + 1}/{totalCount} 件
+            {currentItem.orderNo} · 批次检测中
           </p>
         </div>
         <span className="rounded bg-info/15 px-1.5 py-0.5 text-[10px] text-info">
-          {streamLines.filter((l) => l.done).length}/5
+          推理中
         </span>
       </div>
 
@@ -221,7 +220,7 @@ export const AgentStreamPanel: FC<AgentStreamPanelProps> = ({
         )}
       </div>
 
-      {/* 综合判定卡 + Agent 处置建议（仅 step 4 完成后） */}
+      {/* 综合判定卡 + Agent 处置建议 */}
       {showFinalCards && (
         <>
           <motion.div
@@ -319,7 +318,7 @@ export const AgentStreamPanel: FC<AgentStreamPanelProps> = ({
                 </div>
                 <p className="mt-1 text-[10px] leading-relaxed text-text-secondary">
                   {currentItem.outcome === 'l2'
-                    ? currentItem.materialName === '前保险杠'
+                    ? currentItem.agentSuggestion.includes('标签破损') || currentItem.agentSuggestion.includes('覆膜遮挡')
                       ? '李娜（来料质检）· 当班在线 · 负责外观与标签复核'
                       : '周明（标签 OCR 复核）· 当班在线 · 负责标准号与条码复核'
                     : '王强（安全主管）+ 陈璐（危化品专员）· 当班在线 · 负责 L1 拦截处置'}

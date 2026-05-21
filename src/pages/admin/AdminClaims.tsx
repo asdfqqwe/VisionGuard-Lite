@@ -61,7 +61,7 @@ const messages = [
 
 export const AdminClaims: FC = () => {
   const [selectedClaim, setSelectedClaim] = useState<Claim>(claimList[0]);
-  const [chatInput, setChatInput] = useState('');
+  const [chatInput, setChatInput] = useState('请确认本批发动机线束型号差异，并在今日内回复处理意见。');
   const [chatMessages, setChatMessages] = useState(messages);
 
   const handleSend = () => {
@@ -110,7 +110,7 @@ export const AdminClaims: FC = () => {
                 <div className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ${
                   step.done ? 'bg-success text-white' : 'bg-[#F1F5F9] text-text-muted'
                 }`}>
-                  {step.done ? <CheckCircle className="h-4 w-4" /> : i + 1}
+                  {step.done ? <CheckCircle className="h-4 w-4" /> : <span className="h-2 w-2 rounded-full bg-current" />}
                 </div>
                 <span className={`mt-1.5 text-[10px] ${step.done ? 'text-success font-medium' : 'text-text-muted'}`}>
                   {step.label}

@@ -198,8 +198,32 @@ const ReturnDetail: FC = () => {
         </div>
       </div>
 
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <button
+          onClick={() => navigate('/station/return-inbound?scenario=production-return')}
+          className="flex h-10 items-center justify-center gap-1.5 rounded bg-info text-xs font-semibold text-white"
+        >
+          <ScanLine className="h-4 w-4" />
+          送 Station 复检
+        </button>
+        <button
+          onClick={() => setConfirmed(true)}
+          className="flex h-10 items-center justify-center gap-1.5 rounded bg-success text-xs font-semibold text-white"
+        >
+          <PackageCheck className="h-4 w-4" />
+          {confirmed ? '已确认入库' : '确认入库'}
+        </button>
+      </div>
+
+      <div className="mt-3 rounded-lg border border-info/25 bg-info/10 p-3">
+        <p className="text-xs font-semibold text-text-primary">下一步操作</p>
+        <p className="mt-1 text-[11px] leading-relaxed text-text-secondary">
+          当前退料单已完成主要信息核对。若要展示视觉复检，请点击“送 Station 复检”；若作为 PDA 端演示，可直接点击“确认入库”。
+        </p>
+      </div>
+
       <div className="mt-4">
-        <h3 className="mb-2 text-sm font-semibold text-text-primary">退料入库步骤</h3>
+        <h3 className="mb-2 text-sm font-semibold text-text-primary">退料入库处理</h3>
         <div className="flex gap-2 overflow-x-auto pb-1">
           {steps.map((step) => {
             const Icon = step.icon;
@@ -299,7 +323,7 @@ const ReturnDetail: FC = () => {
       </div>
 
       {/* Bottom Actions */}
-      <div className="mt-6 flex gap-3">
+      <div className="mt-4 flex gap-3">
         <button
           onClick={() => navigate('/pda/return/scan')}
           className="flex h-11 flex-1 items-center justify-center rounded border border-border bg-white text-sm text-text-secondary"

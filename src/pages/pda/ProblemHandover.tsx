@@ -1,8 +1,9 @@
 import type { FC } from 'react';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { problemItems } from '@/data/mockData';
 import { cn } from '@/lib/utils';
+import { purchaseReceiveGuide } from '@/data/purchaseReceiveGuide';
 
 const receivers = ['质检主管', '收货主管', '安全主管', '巡检员'];
 const disposeOptions = [
@@ -13,6 +14,8 @@ const disposeOptions = [
 
 const ProblemHandover: FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isPurchaseGuide = searchParams.get('scenario') === 'purchase-receive';
   const item = problemItems[0] || {
     problemItemNo: 'IQ-001',
     materialName: '一次性丁腈手套',
@@ -20,13 +23,29 @@ const ProblemHandover: FC = () => {
     tempLocation: 'TMP-Q01',
     images: ['/images/handover-photo-1.jpg', '/images/handover-photo-2.jpg', '/images/handover-photo-3.jpg'],
   };
-  const [receiver, setReceiver] = useState('');
-  const [disposeAction, setDisposeAction] = useState<(typeof disposeOptions)[number]['label']>('隔离待整改');
-  const [fixed, setFixed] = useState(false);
+  const displayItem = isPurchaseGuide
+    ? {
+        problemItemNo: 'IQ-78910',
+        materialName: purchaseReceiveGuide.damagedMaterialName,
+        anomalyType: purchaseReceiveGuide.damagedIssue,
+        tempLocation: purchaseReceiveGuide.tempLocation,
+      }
+    : item;
+  const displayImages = isPurchaseGuide
+    ? [
+        '/images/purchase-receive-quarantine.png',
+        '/images/purchase-receive-damaged-label.png',
+        '/images/purchase-receive-ocr-label.png',
+      ]
+    : item.images;
+  const [receiver, setReceiver] = useState('收货主管');
+  const [disposeAction, setDisposeAction] = useState<(typeof disposeOptions)[number]['label']>(
+    isPurchaseGuide ? '复核通过入库' : '隔离待整改',
+  );
+  const [fixed, setFixed] = useState(isPurchaseGuide);
   const [submitted, setSubmitted] = useState(false);
 
   const handleSubmit = () => {
-    if (!receiver) return;
     setSubmitted(true);
     setTimeout(() => navigate('/pda'), 1500);
   };
@@ -40,32 +59,52 @@ const ProblemHandover: FC = () => {
           </svg>
         </div>
         <p className="mt-4 text-lg font-semibold text-success">现场处理已登记</p>
-        <p className="mt-2 text-sm text-text-muted">{item.problemItemNo} · {disposeAction}</p>
+        <p className="mt-2 text-sm text-text-muted">{displayItem.problemItemNo} · {disposeAction}</p>
       </div>
     );
   }
 
   return (
-    <div className="h-full bg-primary px-4 pt-3 pb-4">
+    <div className="flex h-full flex-col bg-primary px-4 py-3">
+      {isPurchaseGuide && (
+        <div className="mb-3 rounded-lg border-2 border-info bg-info/10 p-3 shadow-[0_0_0_3px_rgba(59,130,246,0.08)]">
+          <div className="inline-flex rounded-full bg-info px-2 py-0.5 text-[10px] font-bold text-white">
+            复核结果已带入
+          </div>
+          <h2 className="mt-2 text-sm font-semibold text-text-primary">处理人工复核结果</h2>
+          <p className="mt-1 text-[11px] leading-relaxed text-text-secondary">
+            复核通过后确认入库上架；仍有问题则留在隔离区。
+          </p>
+        </div>
+      )}
+      <div className="min-h-0 flex-1 overflow-y-auto pb-3" style={{ scrollbarWidth: 'none' }}>
       {/* Problem Item Info */}
       <div className="rounded-lg bg-white p-3">
         <div className="flex items-center justify-between">
-          <span className="font-data text-base font-semibold text-info">{item.problemItemNo}</span>
+          <span className="font-data text-base font-semibold text-info">{displayItem.problemItemNo}</span>
           <span className="rounded bg-defect-badge px-2 py-0.5 text-[11px] font-bold text-white">
-            {item.anomalyType}
+            {displayItem.anomalyType}
           </span>
         </div>
-        <div className="mt-2 text-sm text-text-primary">{item.materialName}</div>
+        <div className="mt-2 text-sm text-text-primary">{displayItem.materialName}</div>
         <div className="mt-1 text-xs text-text-muted">
-          临时库位：<span className="font-data text-info">{item.tempLocation}</span>
+          临时库位：<span className="font-data text-info">{displayItem.tempLocation}</span>
         </div>
+        {isPurchaseGuide && (
+          <div className="mt-2 grid grid-cols-2 gap-2 text-[11px]">
+            <span className="rounded bg-primary px-2 py-1 text-text-secondary">采购单 {purchaseReceiveGuide.purchaseOrderNo}</span>
+            <span className="rounded bg-primary px-2 py-1 text-text-secondary">箱序 {purchaseReceiveGuide.damagedCartonNo}</span>
+            <span className="rounded bg-primary px-2 py-1 text-text-secondary">料号 {purchaseReceiveGuide.damagedPartNo}</span>
+            <span className="rounded bg-primary px-2 py-1 text-text-secondary">数量 {purchaseReceiveGuide.damagedQty}</span>
+          </div>
+        )}
       </div>
 
       {/* 3 Photo Thumbnails */}
       <div className="mt-4">
         <h3 className="mb-2 text-sm font-semibold text-text-primary">现场照片</h3>
         <div className="flex gap-2">
-          {item.images.map((src, idx) => (
+          {displayImages.map((src, idx) => (
             <div
               key={idx}
               className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded bg-white border border-border"
@@ -135,14 +174,14 @@ const ProblemHandover: FC = () => {
           ))}
         </div>
       </div>
+      </div>
 
       {/* Bottom CTA */}
-      <div className="mt-6">
+      <div className="shrink-0 border-t border-border-light bg-primary pt-3">
         <button
           onClick={handleSubmit}
-          disabled={!receiver}
           className={cn('h-11 w-full rounded-md text-sm font-semibold text-white',
-            receiver ? fixed && disposeAction === '复核通过入库' ? 'bg-success' : 'bg-danger-gradient' : 'bg-danger/40'
+            fixed && disposeAction === '复核通过入库' ? 'bg-success' : 'bg-danger-gradient'
           )}
         >
           确认处理并同步后台

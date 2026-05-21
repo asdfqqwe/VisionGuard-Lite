@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import type { FC } from 'react';
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Home, ScanLine } from 'lucide-react';
@@ -62,6 +63,11 @@ const routeTitles: Record<string, string> = {
   '/pda/mine': '我的',
 };
 
+const DEVICE_WIDTH = 375;
+const DEVICE_HEIGHT = 850;
+const MAX_SCALE = 1;
+const MIN_SCALE = 0.35;
+
 function getTitle(path: string): string {
   if (routeTitles[path]) return routeTitles[path];
   if (path.startsWith('/pda/exceptions/result/')) return '异常结果';
@@ -76,11 +82,55 @@ export const PDAFrame: FC<PDAFrameProps> = ({ className }) => {
   const title = getTitle(location.pathname);
   const isHome = location.pathname === '/pda' || location.pathname === '/pda/';
   const isMine = location.pathname === '/pda/mine';
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const compute = () => {
+      const rect = el.getBoundingClientRect();
+      const style = window.getComputedStyle(el);
+      const padX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+      const padY = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+      const availW = rect.width - padX - 12;
+      const availH = rect.height - padY - 12;
+      const next = Math.min(
+        MAX_SCALE,
+        Math.max(MIN_SCALE, Math.min(availW / DEVICE_WIDTH, availH / DEVICE_HEIGHT)),
+      );
+      setScale(next);
+    };
+
+    compute();
+    const resizeObserver = new ResizeObserver(compute);
+    resizeObserver.observe(el);
+    window.addEventListener('resize', compute);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', compute);
+    };
+  }, []);
 
   return (
-    <div className={cn('flex min-h-[100dvh] flex-col items-center justify-center bg-[#F1F5F9] py-6 pl-16', className)}>
+    <div
+      ref={containerRef}
+      className={cn('flex h-[100dvh] items-center justify-center overflow-hidden bg-[#F1F5F9] py-3 pl-[76px] pr-3', className)}
+    >
       <EntrySidebar />
-      <div className="relative mx-auto w-[375px] overflow-hidden rounded-[32px] border-[6px] border-border-light bg-primary shadow-2xl">
+      <div
+        className="relative"
+        style={{
+          width: DEVICE_WIDTH * scale,
+          height: DEVICE_HEIGHT * scale,
+        }}
+      >
+      <div
+        className="absolute left-0 top-0 h-[850px] w-[375px] origin-top-left overflow-hidden rounded-[32px] border-[6px] border-border-light bg-primary shadow-2xl"
+        style={{ transform: `scale(${scale})` }}
+      >
         {/* Status bar */}
         <div className="flex h-7 items-center justify-between bg-[#F1F5F9] px-6">
           <span className="text-[11px] font-medium text-text-secondary">9:41</span>
@@ -157,6 +207,7 @@ export const PDAFrame: FC<PDAFrameProps> = ({ className }) => {
         <div className="flex h-8 items-center justify-center bg-[#F1F5F9]">
           <div className="h-1 w-28 rounded-full bg-text-muted/30" />
         </div>
+      </div>
       </div>
 
     </div>
