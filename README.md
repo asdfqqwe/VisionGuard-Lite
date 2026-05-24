@@ -4,7 +4,7 @@
 
 智见是一套面向汽车制造企业仓储场景的 AI 质检软件系统 Web 演示，覆盖从原料入厂到成品出库的全环节质量管控。本系统模拟三端设备（PDA手持终端、Station检测工位、Admin管理后台）的完整交互体验。
 
-**部署地址**: https://f5rots4guzqoo.ok.kimi.link
+**部署地址**: https://visionlite.coze.site/
 
 ---
 
