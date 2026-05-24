@@ -8,8 +8,9 @@
 
 import type { FC } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bot, Check, CheckCircle2, AlertTriangle, ShieldAlert, Send } from 'lucide-react';
+import { Bot, Check, CheckCircle2, AlertTriangle, ShieldAlert, Send, Smartphone } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { DemoStepBadge } from '@/components/shared';
 import type {
   PlayerPhase,
   StreamLine,
@@ -32,6 +33,14 @@ interface AgentStreamPanelProps {
   onHoldL2Review: () => void;
   onConfirmL1Block: () => void;
   onCreateWorkOrder: () => void;
+  onGoToPdaReview?: () => void;
+  passActionStep?: number;
+  passActionLabel?: string;
+  passActionHint?: string;
+  passSuggestion?: string;
+  l2ActionStep?: number;
+  l2ActionLabel?: string;
+  l2ActionHint?: string;
 }
 
 const STAGE_LABELS = ['接收图像', '视觉点数', '标签 OCR', '字段 OCR', '综合判定'];
@@ -168,6 +177,14 @@ export const AgentStreamPanel: FC<AgentStreamPanelProps> = ({
   onHoldL2Review,
   onConfirmL1Block,
   onCreateWorkOrder,
+  onGoToPdaReview,
+  passActionStep = 8,
+  passActionLabel = '确认通过并进入下一件',
+  passActionHint = '操作员确认后，系统会归档检测截图与 OCR 结果。',
+  passSuggestion = '未发现异常，Agent 已确认通过，可直接进入后续入库流程。',
+  l2ActionStep = 9,
+  l2ActionLabel = '下发 PDA 处置',
+  l2ActionHint = 'Station 已完成正式检测。把异常结论下发给收货员 PDA，现场补拍、整改或隔离登记。',
 }) => {
   if (!currentItem) {
     // finished 终态
@@ -188,9 +205,9 @@ export const AgentStreamPanel: FC<AgentStreamPanelProps> = ({
   const isPass = currentItem.outcome === 'pass';
 
   return (
-    <div className="flex flex-1 flex-col gap-2 overflow-y-auto pr-0.5">
+    <div className="flex h-full min-h-0 flex-col gap-1.5 overflow-y-auto pr-0.5">
       {/* 顶部物品上下文 */}
-      <div className="flex items-center gap-2 rounded-lg bg-info/8 border border-info/20 px-2.5 py-2">
+      <div className="flex items-center gap-2 rounded-lg bg-info/8 border border-info/20 px-2.5 py-1.5">
         <Bot className="h-4 w-4 shrink-0 text-info" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[11px] font-semibold text-text-primary">
@@ -207,9 +224,12 @@ export const AgentStreamPanel: FC<AgentStreamPanelProps> = ({
       </div>
 
       {/* 流式行 */}
-      <div className="space-y-2 rounded-lg bg-[#F8FAFC] p-2.5">
+      <div className={cn(
+        'rounded-lg bg-[#F8FAFC] p-2',
+        showFinalCards ? 'space-y-1' : 'space-y-1.5',
+      )}>
         <AnimatePresence initial={false}>
-          {streamLines.map((line) => (
+          {(showFinalCards ? streamLines.slice(-2) : streamLines).map((line) => (
             <StreamRow key={line.step} line={line} outcome={currentItem.outcome} />
           ))}
         </AnimatePresence>
@@ -229,41 +249,66 @@ export const AgentStreamPanel: FC<AgentStreamPanelProps> = ({
             className={cn('overflow-hidden rounded-lg border', tone.border)}
           >
             <div className={cn('h-1', tone.bar)} />
-            <div className="p-2.5">
+            <div className="p-2">
               <div className="flex items-center gap-1.5">
                 {tone.icon}
                 <h4 className={cn('text-[12px] font-semibold', tone.title)}>
                   {currentItem.summary.title}
                 </h4>
               </div>
-              <div className="mt-2 grid grid-cols-3 gap-1.5">
-                <div className="rounded bg-[#F1F5F9] px-1.5 py-1 text-center">
+              <div className="mt-1.5 grid grid-cols-3 gap-1">
+                <div className="rounded bg-[#F1F5F9] px-1.5 py-0.5 text-center">
                   <p className="text-[9px] text-text-muted">置信度</p>
                   <p className="font-mono text-[11px] font-semibold text-text-primary">
                     {currentItem.summary.confidence}
                   </p>
                 </div>
-                <div className="rounded bg-[#F1F5F9] px-1.5 py-1 text-center">
+                <div className="rounded bg-[#F1F5F9] px-1.5 py-0.5 text-center">
                   <p className="text-[9px] text-text-muted">耗时</p>
                   <p className="font-mono text-[11px] font-semibold text-text-primary">
                     {currentItem.summary.latency}
                   </p>
                 </div>
-                <div className="rounded bg-[#F1F5F9] px-1.5 py-1 text-center">
+                <div className="rounded bg-[#F1F5F9] px-1.5 py-0.5 text-center">
                   <p className="text-[9px] text-text-muted">模型</p>
                   <p className="font-mono text-[10px] font-semibold text-text-primary">
                     {currentItem.summary.model}
                   </p>
                 </div>
               </div>
-              <div className="mt-2 space-y-1">
-                {currentItem.summary.lines.map((l) => (
+              <div className="mt-1 space-y-0.5">
+                {currentItem.summary.lines.slice(0, 3).map((l) => (
                   <div key={l.label} className="flex justify-between text-[11px]">
                     <span className="text-text-muted">{l.label}</span>
                     <span className="font-medium text-text-primary">{l.value}</span>
                   </div>
                 ))}
               </div>
+              {currentItem.summary.packageGroups && (
+                <div className="mt-2 grid grid-cols-3 gap-1">
+                  {currentItem.summary.packageGroups.map((group) => (
+                    <div
+                      key={group.label}
+                      className="rounded border border-success/20 bg-success/5 px-1.5 py-1"
+                    >
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="text-[10px] font-semibold text-success">
+                          {group.label}
+                        </span>
+                        <span className="font-mono text-[10px] text-text-primary">
+                          {group.count}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 truncate text-[10px] text-text-secondary">
+                        {group.tags}
+                      </p>
+                      <p className="mt-0.5 line-clamp-2 text-[9px] leading-tight text-text-muted">
+                        {group.note}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </motion.div>
 
@@ -273,7 +318,7 @@ export const AgentStreamPanel: FC<AgentStreamPanelProps> = ({
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.08 }}
             className={cn(
-              'rounded-lg border p-2.5',
+              'rounded-lg border p-2',
               isPass
                 ? 'border-success/35 bg-success/8'
                 : currentItem.outcome === 'l2'
@@ -305,8 +350,8 @@ export const AgentStreamPanel: FC<AgentStreamPanelProps> = ({
                 {isPass ? 'Agent 通过确认' : 'Agent 处置建议'}
               </span>
             </div>
-            <p className="mt-1 text-[11px] leading-relaxed text-text-secondary">
-              {isPass ? '未发现异常，Agent 已确认通过，可直接进入后续入库流程。' : currentItem.agentSuggestion}
+            <p className="mt-1 text-[11px] leading-snug text-text-secondary">
+              {isPass ? passSuggestion : currentItem.agentSuggestion}
             </p>
             {!isPass && (
               <div className="mt-2 rounded bg-white/60 px-2 py-1.5">
@@ -355,16 +400,18 @@ export const AgentStreamPanel: FC<AgentStreamPanelProps> = ({
             <motion.div
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              className="rounded-lg border border-success/30 bg-success/8 p-2.5"
+              className="sticky bottom-0 z-10 rounded-lg border border-success/30 bg-success/8 p-2 shadow-[0_-6px_16px_rgba(15,23,42,0.08)] backdrop-blur"
             >
-              <p className="text-[11px] text-text-secondary">
-                操作员确认后，系统会归档检测截图与 OCR 结果。
+              <p className="text-[11px] leading-snug text-text-secondary">
+                {passActionHint}
               </p>
               <button
                 onClick={onApprovePass}
-                className="mt-2 w-full rounded bg-success px-2.5 py-1.5 text-[11px] font-medium text-white transition-colors hover:bg-success/90"
+                className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded bg-success px-2.5 py-1.5 text-[11px] font-medium text-white transition-colors hover:bg-success/90"
               >
-                确认通过并进入下一件
+                <DemoStepBadge step={passActionStep} />
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                {passActionLabel}
               </button>
             </motion.div>
           )}
@@ -373,25 +420,36 @@ export const AgentStreamPanel: FC<AgentStreamPanelProps> = ({
             <motion.div
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              className="rounded-lg border border-l2-badge/40 bg-l2-badge/8 p-2.5"
+              className="sticky bottom-0 z-10 rounded-lg border border-l2-badge/40 bg-l2-badge/8 p-2.5 shadow-[0_-6px_16px_rgba(15,23,42,0.08)] backdrop-blur"
             >
               <p className="text-[11px] text-text-secondary">
-                黄色告警需要质检员处理，Agent 建议优先走飞书指派。
+                {l2ActionHint}
               </p>
-              <div className="mt-2 grid grid-cols-2 gap-2">
+              {onGoToPdaReview ? (
                 <button
-                  onClick={onAssignL2Review}
-                  className="rounded bg-l2-badge px-2 py-1.5 text-[11px] font-medium text-white transition-colors hover:bg-l2-badge/90"
+                  onClick={onGoToPdaReview}
+                  className="mt-2 flex w-full items-center justify-center gap-1.5 rounded bg-l2-badge px-2.5 py-2 text-[11px] font-semibold text-white shadow-[0_0_0_3px_rgba(217,119,6,0.16)] transition-colors hover:bg-l2-badge/90"
                 >
-                  飞书指派
+                  <DemoStepBadge step={l2ActionStep} />
+                  <Smartphone className="h-3.5 w-3.5" />
+                  {l2ActionLabel}
                 </button>
-                <button
-                  onClick={onHoldL2Review}
-                  className="rounded border border-l2-badge/40 px-2 py-1.5 text-[11px] font-medium text-l2-badge transition-colors hover:bg-l2-badge/10"
-                >
-                  暂存复核
-                </button>
-              </div>
+              ) : (
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <button
+                    onClick={onAssignL2Review}
+                    className="rounded bg-l2-badge px-2 py-1.5 text-[11px] font-medium text-white transition-colors hover:bg-l2-badge/90"
+                  >
+                    飞书指派
+                  </button>
+                  <button
+                    onClick={onHoldL2Review}
+                    className="rounded border border-l2-badge/40 px-2 py-1.5 text-[11px] font-medium text-l2-badge transition-colors hover:bg-l2-badge/10"
+                  >
+                    暂存复核
+                  </button>
+                </div>
+              )}
             </motion.div>
           )}
 
@@ -399,7 +457,7 @@ export const AgentStreamPanel: FC<AgentStreamPanelProps> = ({
             <motion.div
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              className="rounded-lg border border-l1-badge/40 bg-l1-badge/8 p-2.5"
+              className="sticky bottom-0 z-10 rounded-lg border border-l1-badge/40 bg-l1-badge/8 p-2.5 shadow-[0_-6px_16px_rgba(15,23,42,0.08)] backdrop-blur"
             >
               <p className="text-[11px] text-text-secondary">
                 红色告警已推荐飞书通知王强和陈璐，需同步创建安全处置工单。

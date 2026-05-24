@@ -1,7 +1,9 @@
 import type { FC } from 'react';
 import { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { ClipboardCheck, ScanLine } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { DemoStepBadge } from '@/components/shared';
 import { postPurchaseSyncStatus } from '@/api/mockApi';
 import { purchaseReceiveGuide } from '@/data/purchaseReceiveGuide';
 
@@ -12,15 +14,29 @@ const packagingOptions = ['散装', '盒装', '整托', '整托+散装'];
 
 const ReceiveAppointment: FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const isPurchaseGuide = searchParams.get('scenario') === 'purchase-receive';
-  const [supplier, setSupplier] = useState<string>(purchaseReceiveGuide.supplier);
-  const [deliveryOrder, setDeliveryOrder] = useState<string>(purchaseReceiveGuide.purchaseOrderNo);
+  const navState = location.state as {
+    appointment?: {
+      po: string;
+      supplier: string;
+      eta?: string;
+      sku: string;
+      qty: string;
+      pack: string;
+      station: string;
+      batch: string;
+    };
+  } | null;
+  const appointment = navState?.appointment;
+  const [supplier, setSupplier] = useState<string>(appointment?.supplier ?? purchaseReceiveGuide.supplier);
+  const [deliveryOrder, setDeliveryOrder] = useState<string>(appointment?.po ?? purchaseReceiveGuide.purchaseOrderNo);
   const [date, setDate] = useState<string>(purchaseReceiveGuide.date);
-  const [timeSlot, setTimeSlot] = useState<string>(purchaseReceiveGuide.timeSlot);
-  const [skuCount, setSkuCount] = useState<string>(purchaseReceiveGuide.skuCount);
-  const [packagingMethod, setPackagingMethod] = useState<string>(purchaseReceiveGuide.packagingMethod);
-  const [stationMode, setStationMode] = useState<string>(purchaseReceiveGuide.stationMode);
+  const [timeSlot, setTimeSlot] = useState<string>(appointment?.eta ?? purchaseReceiveGuide.timeSlot);
+  const [skuCount, setSkuCount] = useState<string>(appointment?.sku ?? purchaseReceiveGuide.skuCount);
+  const [packagingMethod, setPackagingMethod] = useState<string>(appointment?.pack ?? purchaseReceiveGuide.packagingMethod);
+  const [stationMode, setStationMode] = useState<string>(appointment?.station ?? purchaseReceiveGuide.stationMode);
   const [skuLines, setSkuLines] = useState<string>(purchaseReceiveGuide.skuLines);
   const [carrier, setCarrier] = useState<string>(purchaseReceiveGuide.carrier);
   const [notes, setNotes] = useState(`预约车辆已到厂门，按 ${purchaseReceiveGuide.purchaseOrderNo} 批次收货。`);
@@ -45,7 +61,7 @@ const ReceiveAppointment: FC = () => {
       { label: '预约时间', value: `${date} ${timeSlot}` },
       { label: '预计 SKU', value: `${skuCount} 个` },
       { label: '包装方式', value: packagingMethod },
-      { label: '检测工位', value: stationMode },
+      { label: '执行安排', value: 'PDA 采集，Agent 判断是否送检' },
       { label: '承运商', value: carrier },
       { label: '批次说明', value: skuLines },
     ];
@@ -54,11 +70,11 @@ const ReceiveAppointment: FC = () => {
       <div className="flex h-full flex-col bg-primary px-4 py-3">
         <div className="rounded-lg border-2 border-info bg-info/10 p-3 shadow-[0_0_0_3px_rgba(59,130,246,0.08)]">
           <div className="inline-flex rounded-full bg-info px-2 py-0.5 text-[10px] font-bold text-white">
-            到货信息已带入
+            收货任务已带入
           </div>
-          <h2 className="mt-2 text-sm font-semibold text-text-primary">确认现场预约登记</h2>
+          <h2 className="mt-2 text-sm font-semibold text-text-primary">收货员确认到货登记</h2>
           <p className="mt-1 text-[11px] leading-relaxed text-text-secondary">
-            车辆已到厂门，采购单、供应商、包装方式和检测工位已经填好。
+            Agent 已安排收货任务。PDA 负责现场采集；低风险任务可直接完成，当前批次建议送 Station 正式检测。
           </p>
         </div>
 
@@ -81,7 +97,7 @@ const ReceiveAppointment: FC = () => {
             ))}
           </div>
           <p className="mt-2 rounded bg-success/10 px-2 py-1.5 text-[11px] text-success">
-            PDA 已收到后台配置，可直接进入扫码收货。
+            当前 PDA 登录人为收货员，可直接进入扫码收货。
           </p>
         </div>
 
@@ -90,10 +106,12 @@ const ReceiveAppointment: FC = () => {
             onClick={handleSubmit}
             disabled={submitting}
             className={cn(
-              'h-12 w-full rounded-md bg-accent-gradient text-sm font-semibold text-white shadow-[0_0_0_4px_rgba(245,158,11,0.18)]',
+              'flex h-12 w-full items-center justify-center gap-2 rounded-md bg-accent-gradient text-sm font-semibold text-white shadow-[0_0_0_4px_rgba(245,158,11,0.18)]',
               'active:scale-[0.98] disabled:opacity-50',
             )}
           >
+            <DemoStepBadge step={2} />
+            {submitting ? <ClipboardCheck className="h-4 w-4 animate-pulse" /> : <ScanLine className="h-4 w-4" />}
             {submitting ? '正在确认...' : '确认到货信息'}
           </button>
         </div>

@@ -1,4 +1,4 @@
-import type { FC } from 'react';
+import { useEffect, useRef, useState, type FC } from 'react';
 import { ZoomIn, ZoomOut, Maximize, RotateCcw, Camera, ScanLine } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -43,6 +43,45 @@ export const ImageInspectArea: FC<ImageInspectAreaProps> = ({
   className,
   overlayContent,
 }) => {
+  const frameRef = useRef<HTMLDivElement>(null);
+  const [frameSize, setFrameSize] = useState({ width: 0, height: 0 });
+  const [imageSize, setImageSize] = useState({ width: 16, height: 9 });
+
+  useEffect(() => {
+    const node = frameRef.current;
+    if (!node) return;
+
+    const updateFrameSize = () => {
+      const rect = node.getBoundingClientRect();
+      setFrameSize({ width: rect.width, height: rect.height });
+    };
+
+    updateFrameSize();
+    const observer = new ResizeObserver(updateFrameSize);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  const frameRatio =
+    frameSize.width > 0 && frameSize.height > 0 ? frameSize.width / frameSize.height : 16 / 9;
+  const imageRatio = imageSize.width / imageSize.height;
+  const layerWidth = frameRatio > imageRatio ? frameSize.height * imageRatio : frameSize.width;
+  const layerHeight = frameRatio > imageRatio ? frameSize.height : frameSize.width / imageRatio;
+  const layerStyle =
+    frameSize.width > 0 && frameSize.height > 0
+      ? {
+          left: `${(frameSize.width - layerWidth) / 2}px`,
+          top: `${(frameSize.height - layerHeight) / 2}px`,
+          width: `${layerWidth}px`,
+          height: `${layerHeight}px`,
+        }
+      : {
+          left: 0,
+          top: 0,
+          width: '100%',
+          height: '100%',
+        };
+
   const statusBorder = {
     pass: 'border-success/30',
     warning: 'border-warning/30',
@@ -57,66 +96,67 @@ export const ImageInspectArea: FC<ImageInspectAreaProps> = ({
     <div className={cn('relative flex h-full flex-col', className)}>
       {/* Image area */}
       <div
+        ref={frameRef}
         className={cn(
           'relative flex flex-1 items-center justify-center overflow-hidden rounded-lg border-2',
           statusBorder,
           'bg-[#F1F5F9]'
         )}
       >
-        {imageUrl ? (
-          <img
-            src={imageUrl}
-            alt="检测图像"
-            className="h-full w-full object-contain"
-          />
-        ) : (
-          <>
-            {!imageUrl && !fallbackImageUrl && (
-              <div className="flex flex-col items-center gap-3">
-                <ScanLine className="h-12 w-12 text-text-muted" />
-                <span className="text-sm text-text-muted">等待检测图像...</span>
-              </div>
-            )}
-            {!imageUrl && fallbackImageUrl && (
-              <img src={fallbackImageUrl} alt="检测图像" className="h-full w-full object-contain" />
-            )}
-          </>
-        )}
+        {imageUrl || fallbackImageUrl ? (
+          <div className="absolute overflow-visible" style={layerStyle}>
+            <img
+              src={imageUrl || fallbackImageUrl}
+              alt="检测图像"
+              className="h-full w-full object-fill"
+              onLoad={(e) => {
+                const img = e.currentTarget;
+                if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+                  setImageSize({ width: img.naturalWidth, height: img.naturalHeight });
+                }
+              }}
+            />
 
-        {/* Detection boxes overlay */}
-        {boxes.map((box, i) => (
-          <div
-            key={i}
-            className={cn(
-              'absolute border',
-              boxColors[box.type],
-              box.type === 'danger' && 'animate-flash-alert'
-            )}
-            style={{
-              left: `${box.x}%`,
-              top: `${box.y}%`,
-              width: `${box.w}%`,
-              height: `${box.h}%`,
-            }}
-          >
-            {/* Label */}
-            <div
-              className={cn(
-                'absolute -top-5 left-0 whitespace-nowrap rounded px-1 py-0.5 text-[10px] font-medium text-white',
-                box.type === 'pass'
-                  ? 'bg-success'
-                  : box.type === 'danger'
-                    ? 'bg-danger'
-                    : box.type === 'defect'
-                      ? 'bg-defect-badge'
-                      : 'bg-warning'
-              )}
-            >
-              {box.label}
-              {box.confidence !== undefined && ` ${box.confidence.toFixed(1)}%`}
-            </div>
+            {/* Detection boxes overlay */}
+            {boxes.map((box, i) => (
+              <div
+                key={i}
+                className={cn(
+                  'absolute border',
+                  boxColors[box.type],
+                  box.type === 'danger' && 'animate-flash-alert'
+                )}
+                style={{
+                  left: `${box.x}%`,
+                  top: `${box.y}%`,
+                  width: `${box.w}%`,
+                  height: `${box.h}%`,
+                }}
+              >
+                <div
+                  className={cn(
+                    'absolute -top-5 left-0 whitespace-nowrap rounded px-1 py-0.5 text-[10px] font-medium text-white',
+                    box.type === 'pass'
+                      ? 'bg-success'
+                      : box.type === 'danger'
+                        ? 'bg-danger'
+                        : box.type === 'defect'
+                          ? 'bg-defect-badge'
+                          : 'bg-warning'
+                  )}
+                >
+                  {box.label}
+                  {box.confidence !== undefined && ` ${box.confidence.toFixed(1)}%`}
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
+        ) : (
+          <div className="flex flex-col items-center gap-3">
+            <ScanLine className="h-12 w-12 text-text-muted" />
+            <span className="text-sm text-text-muted">等待检测图像...</span>
+          </div>
+        )}
 
         {/* Custom overlay (for triage evidence, etc) */}
         {overlayContent}

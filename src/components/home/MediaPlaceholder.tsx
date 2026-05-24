@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 interface MediaPlaceholderProps {
   kind?: 'image' | 'video';
   imageSrc?: string;
+  fallbackImageSrc?: string;
   videoSrc?: string;
   posterSrc?: string;
   title: string;
@@ -18,6 +19,7 @@ interface MediaPlaceholderProps {
 export const MediaPlaceholder: FC<MediaPlaceholderProps> = ({
   kind = 'image',
   imageSrc,
+  fallbackImageSrc,
   videoSrc,
   posterSrc,
   title,
@@ -27,17 +29,19 @@ export const MediaPlaceholder: FC<MediaPlaceholderProps> = ({
   mediaClassName,
 }) => {
   const [imageReady, setImageReady] = useState(Boolean(imageSrc));
+  const [currentImageSrc, setCurrentImageSrc] = useState(imageSrc);
   const [videoReady, setVideoReady] = useState(Boolean(videoSrc));
 
   useEffect(() => {
     setImageReady(Boolean(imageSrc));
+    setCurrentImageSrc(imageSrc);
   }, [imageSrc]);
 
   useEffect(() => {
     setVideoReady(Boolean(videoSrc));
   }, [videoSrc]);
 
-  const showImage = kind === 'image' && Boolean(imageSrc) && imageReady;
+  const showImage = kind === 'image' && Boolean(currentImageSrc) && imageReady;
   const showVideo = kind === 'video' && Boolean(videoSrc) && videoReady;
 
   return (
@@ -49,10 +53,16 @@ export const MediaPlaceholder: FC<MediaPlaceholderProps> = ({
     >
       {showImage ? (
         <img
-          src={imageSrc}
+          src={currentImageSrc}
           alt={title}
           loading="lazy"
-          onError={() => setImageReady(false)}
+          onError={() => {
+            if (fallbackImageSrc && currentImageSrc !== fallbackImageSrc) {
+              setCurrentImageSrc(fallbackImageSrc);
+              return;
+            }
+            setImageReady(false);
+          }}
           className={cn('h-full w-full object-cover', mediaClassName)}
         />
       ) : null}

@@ -1,4 +1,4 @@
-import type { FC } from 'react';
+import type { FC, ReactNode } from 'react';
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -8,7 +8,6 @@ import {
   ScanLine,
   Barcode,
   Boxes,
-  Bot,
   FileText,
   PlayCircle,
   RotateCcw,
@@ -23,6 +22,9 @@ import {
   CheckCircle,
   BookOpen,
   Shuffle,
+  Cpu,
+  Layers,
+  Eye,
 } from 'lucide-react';
 import { useData } from '@/context/DataContext';
 import { cn } from '@/lib/utils';
@@ -44,6 +46,10 @@ import {
 } from '@/components/shared';
 import { deliveryOrderPO007 } from '@/data/mockData';
 import type { DetectBox } from '@/components/station/ImageInspectArea';
+import type { ScriptedItem } from './detection-script';
+import { useDetectionPlayer } from './useDetectionPlayer';
+import { PipelineChipRow, type PipelineChipDef } from './components/PipelineChipRow';
+import { AgentStreamPanel } from './components/AgentStreamPanel';
 
 type CapabilityDemoKey = 'counting' | 'label-check' | 'ocr' | 'barcode';
 
@@ -53,7 +59,9 @@ interface CapabilityDemoConfig {
   subtitle: string;
   taskNo: string;
   imageUrl: string;
-  imageFrameClass: string;
+  idleImageUrl?: string;
+  cameraId: string;
+  cameraLabel: string;
   status: 'pass' | 'warning' | 'danger' | 'tagMissing';
   readyText: string;
   infoText: string;
@@ -62,59 +70,114 @@ interface CapabilityDemoConfig {
   details: { label: string; value: string; tone: string }[];
   agentLines: string[];
   suggestion: string;
+  summaryTitle: string;
+  resultCardType: 'pass' | 'warning' | 'danger';
+  badgeStatus: '通过' | 'L1拦截' | 'L2警示' | 'NG外观' | '不清晰' | '标签缺失';
+  taskInfo: {
+    orderNo: string;
+    source: string;
+    supplier: string;
+    totalItems: string;
+    weight: string;
+    arrivalTime: string;
+  };
+  itemRows: { lineNo: number; name: string; mode: string; status: '通过' | '复核' | '待检' | '异常' }[];
+  miniCards: {
+    history: { title: string; value: string; valueColor?: string };
+    standard: { title: string; value: string };
+    link: { title: string; value: string; valueColor?: string };
+  };
+  collaboration: {
+    aeNo?: string;
+    woNo?: string;
+    iqNo?: string;
+    clNo?: string;
+    reminderStatus: '待提醒' | '已提醒' | '已确认' | '已驳回';
+    backendStatus: '待接收' | '已接收' | '处理中' | '已完结';
+    handler: string;
+    handlerComment: string;
+  };
 }
 
 const capabilityDemoConfigs: Record<CapabilityDemoKey, CapabilityDemoConfig> = {
   counting: {
     key: 'counting',
     title: '视觉自动点数',
-    subtitle: '整托纸箱 · 固定式视觉相机',
+    subtitle: '输送线顶视 · 整箱瓶数点算',
     taskNo: 'CAP-COUNT-0522',
-    imageUrl: '/images/purchase-receive-station-overhead.png',
-    imageFrameClass: 'aspect-[16/9]',
+    imageUrl: '/images/inspect-water-line-overhead.png',
+    cameraId: 'CAM-02',
+    cameraLabel: '主相机 · 顶视点数',
     status: 'pass',
     readyText: '固定相机已就绪：等待检测',
-    infoText: '视觉点数：识别 6 个外箱，箱规 50 EA/箱，总数 300 EA',
+    infoText: '视觉点数：识别 3 箱矿泉水，每箱 20 瓶，合计 60 瓶',
     boxes: [
-      { x: 33, y: 18, w: 12, h: 16, label: '箱 #1', confidence: 99.1, type: 'pass' },
-      { x: 46, y: 18, w: 12, h: 16, label: '箱 #2', confidence: 98.6, type: 'pass' },
-      { x: 33, y: 35, w: 12, h: 16, label: '箱 #3', confidence: 98.4, type: 'pass' },
-      { x: 46, y: 35, w: 12, h: 16, label: '箱 #4', confidence: 99.4, type: 'pass' },
-      { x: 33, y: 52, w: 12, h: 16, label: '箱 #5', confidence: 97.8, type: 'pass' },
-      { x: 46, y: 52, w: 12, h: 16, label: '箱 #6', confidence: 98.1, type: 'pass' },
+      { x: 6.0, y: 18.0, w: 27.5, h: 58.0, label: '水箱 #1 20 瓶', confidence: 98.8, type: 'pass' },
+      { x: 37.0, y: 18.0, w: 27.0, h: 58.0, label: '水箱 #2 20 瓶', confidence: 98.2, type: 'pass' },
+      { x: 68.0, y: 18.0, w: 27.0, h: 58.0, label: '水箱 #3 20 瓶', confidence: 97.9, type: 'pass' },
     ],
     metrics: [
-      { label: '识别外箱', value: '6 / 6', tone: 'text-success' },
-      { label: '箱规', value: '50 EA', tone: 'text-info' },
-      { label: '总数', value: '300 EA', tone: 'text-success' },
+      { label: '识别箱数', value: '3 箱', tone: 'text-success' },
+      { label: '箱规', value: '20 瓶', tone: 'text-info' },
+      { label: '总数', value: '60 瓶', tone: 'text-success' },
     ],
     details: [
-      { label: '托码', value: 'PLT-20260315-007', tone: 'text-success' },
-      { label: '箱码', value: 'CTN-007-001 起', tone: 'text-success' },
-      { label: '包装', value: '整托 / 盒装', tone: 'text-info' },
+      { label: '水箱 #1', value: '20 瓶', tone: 'text-success' },
+      { label: '水箱 #2', value: '20 瓶', tone: 'text-success' },
+      { label: '水箱 #3', value: '20 瓶', tone: 'text-success' },
       { label: '结果', value: '数量一致', tone: 'text-success' },
     ],
     agentLines: [
-      '接收固定相机图像，检测区域为黄色边框内的整托纸箱。',
-      '已识别 6 个外箱，未发现明显遮挡或重叠。',
-      '按箱规 50 EA/箱计算，本托合计 300 EA。',
-      '数量与到货任务一致，建议进入后续标签和 OCR 抽检。',
+      '接收固定顶视相机图像，画面中可见 3 箱矿泉水。',
+      '按瓶盖阵列计数：每箱 20 瓶，3 箱均未发现遮挡。',
+      '视觉点数结果为 60 瓶，与箱标 20 x 500ml 的箱规一致。',
+      '建议把箱数、瓶数和截图写入本次视觉点数记录。',
     ],
-    suggestion: '数量已确认，可继续执行标签合规检测和关键字段 OCR 抽检。',
+    suggestion: '视觉点数已完成，3 箱合计 60 瓶，可提交数量记录。',
+    summaryTitle: '检测通过',
+    resultCardType: 'pass',
+    badgeStatus: '通过',
+    taskInfo: {
+      orderNo: 'CNT-2026-0522',
+      source: '输送线顶视工位',
+      supplier: '低风险日用品',
+      totalItems: '3 箱',
+      weight: '30.0kg',
+      arrivalTime: '10:24:36',
+    },
+    itemRows: [
+      { lineNo: 1, name: '矿泉水 #1', mode: '点数', status: '通过' },
+      { lineNo: 2, name: '矿泉水 #2', mode: '点数', status: '通过' },
+      { lineNo: 3, name: '矿泉水 #3', mode: '点数', status: '通过' },
+      { lineNo: 4, name: '下一组输送箱', mode: '待检', status: '待检' },
+    ],
+    miniCards: {
+      history: { title: '箱规记录', value: '20 瓶/箱', valueColor: 'text-success' },
+      standard: { title: '点数标准', value: '版本 v1.6' },
+      link: { title: 'CNT-0522', value: '已记录', valueColor: 'text-success' },
+    },
+    collaboration: {
+      reminderStatus: '已确认',
+      backendStatus: '已接收',
+      handler: '检测台-自动',
+      handlerComment: '3 箱矿泉水数量一致，结果已写入检测记录',
+    },
   },
   'label-check': {
     key: 'label-check',
     title: '标签存在性检测',
-    subtitle: '质量抽检点 · 外箱标签复核',
+    subtitle: '复核台 · 产品标签检查',
     taskNo: 'CAP-LABEL-0522',
     imageUrl: '/images/inspect-gloves-tag-missing.jpg',
-    imageFrameClass: 'aspect-square max-w-[640px]',
+    idleImageUrl: '/assets/placeholders/capability-label-check.png',
+    cameraId: 'CAM-03',
+    cameraLabel: '主相机 · 标签存在性',
     status: 'tagMissing',
     readyText: '标签检测相机已就绪：等待检测',
-    infoText: '标签检测：右侧预期贴标区域未识别到产品标签',
+    infoText: '标签检测：右侧红色虚线区域未识别到产品标签',
     boxes: [
       { x: 47, y: 31, w: 39, h: 36, label: '预期标签区缺失', confidence: 91.7, type: 'danger' },
-      { x: 12, y: 26, w: 22, h: 26, label: '箱体印刷', confidence: 96.4, type: 'pass' },
+      { x: 13, y: 26, w: 23, h: 24, label: '箱体印刷', confidence: 96.4, type: 'pass' },
     ],
     metrics: [
       { label: '标签', value: '缺失', tone: 'text-danger' },
@@ -134,6 +197,34 @@ const capabilityDemoConfigs: Record<CapabilityDemoKey, CapabilityDemoConfig> = {
       '建议暂缓通过，补贴产品标签后再次检测。',
     ],
     suggestion: '该箱缺少产品标签，建议补标并保留复检照片。',
+    summaryTitle: '标签缺失',
+    resultCardType: 'warning',
+    badgeStatus: '标签缺失',
+    taskInfo: {
+      orderNo: 'LBL-2026-0522',
+      source: '复核台 CAM-03',
+      supplier: '低风险日用品',
+      totalItems: '1 箱',
+      weight: '8.5kg',
+      arrivalTime: '10:26:10',
+    },
+    itemRows: [
+      { lineNo: 1, name: '丁腈手套外箱', mode: '标签', status: '复核' },
+      { lineNo: 2, name: '箱体印刷', mode: '外观', status: '通过' },
+      { lineNo: 3, name: '待检样本', mode: '待检', status: '待检' },
+    ],
+    miniCards: {
+      history: { title: '标签缺失', value: '近 30 天 1.8%', valueColor: 'text-warning' },
+      standard: { title: '标签标准', value: '版本 v2.0' },
+      link: { title: 'WO-LBL-0522', value: '待处理', valueColor: 'text-warning' },
+    },
+    collaboration: {
+      woNo: 'WO-LBL-0522',
+      reminderStatus: '已提醒',
+      backendStatus: '已接收',
+      handler: '收货主管-张',
+      handlerComment: '产品标签缺失，需补标后复检',
+    },
   },
   ocr: {
     key: 'ocr',
@@ -141,17 +232,18 @@ const capabilityDemoConfigs: Record<CapabilityDemoKey, CapabilityDemoConfig> = {
     subtitle: '箱标近景 · 供应商 / 批次 / 日期',
     taskNo: 'CAP-OCR-0522',
     imageUrl: '/images/purchase-receive-ocr-label.png',
-    imageFrameClass: 'aspect-[4/3] max-w-[720px]',
+    cameraId: 'CAM-04',
+    cameraLabel: '主相机 · OCR 近景',
     status: 'pass',
     readyText: 'OCR 相机已就绪：等待检测',
     infoText: 'OCR 抽检：供应商、料号、批次、生产日期、数量、有效期均可读',
     boxes: [
-      { x: 18, y: 13, w: 34, h: 13, label: '供应商 SUP5678', confidence: 99.0, type: 'pass' },
-      { x: 18, y: 29, w: 34, h: 14, label: '批次 L20260315A', confidence: 98.6, type: 'pass' },
-      { x: 18, y: 44, w: 34, h: 12, label: '生产日期', confidence: 98.2, type: 'pass' },
-      { x: 18, y: 58, w: 34, h: 11, label: '数量 250', confidence: 97.8, type: 'pass' },
-      { x: 52, y: 17, w: 33, h: 18, label: '料号 APX-74218', confidence: 99.1, type: 'pass' },
-      { x: 59, y: 69, w: 27, h: 15, label: '条码', confidence: 98.5, type: 'pass' },
+      { x: 16.0, y: 13.0, w: 35.0, h: 13.0, label: '供应商 SUP5678', confidence: 99.0, type: 'pass' },
+      { x: 16.0, y: 29.0, w: 35.0, h: 13.0, label: '批次 L20260315A', confidence: 98.6, type: 'pass' },
+      { x: 16.0, y: 44.0, w: 35.0, h: 12.0, label: '生产日期', confidence: 98.2, type: 'pass' },
+      { x: 16.0, y: 58.0, w: 35.0, h: 11.0, label: '数量 250', confidence: 97.8, type: 'pass' },
+      { x: 51.0, y: 13.0, w: 34.0, h: 24.0, label: '料号 APX-74218', confidence: 99.1, type: 'pass' },
+      { x: 58.0, y: 70.0, w: 27.0, h: 13.0, label: '条码', confidence: 98.5, type: 'pass' },
     ],
     metrics: [
       { label: '字段', value: '6 / 6', tone: 'text-success' },
@@ -171,252 +263,494 @@ const capabilityDemoConfigs: Record<CapabilityDemoKey, CapabilityDemoConfig> = {
       '字段完整且置信度稳定，建议写入抽检记录。',
     ],
     suggestion: '箱标字段完整，OCR 结果可作为本批抽检记录。',
+    summaryTitle: 'OCR 抽检通过',
+    resultCardType: 'pass',
+    badgeStatus: '通过',
+    taskInfo: {
+      orderNo: 'OCR-2026-0522',
+      source: '箱标近景 CAM-04',
+      supplier: 'SUP5678',
+      totalItems: '1 张标签',
+      weight: '单箱',
+      arrivalTime: '10:27:44',
+    },
+    itemRows: [
+      { lineNo: 1, name: '供应商编码', mode: 'OCR', status: '通过' },
+      { lineNo: 2, name: '料号与批次', mode: 'OCR', status: '通过' },
+      { lineNo: 3, name: '日期与数量', mode: 'OCR', status: '通过' },
+      { lineNo: 4, name: '条码区域', mode: '读取', status: '通过' },
+    ],
+    miniCards: {
+      history: { title: '字段读取', value: '6 / 6', valueColor: 'text-success' },
+      standard: { title: 'OCR 标准', value: '版本 v2.1' },
+      link: { title: 'OCR-0522', value: '已记录', valueColor: 'text-success' },
+    },
+    collaboration: {
+      reminderStatus: '已确认',
+      backendStatus: '已接收',
+      handler: '检测台-自动',
+      handlerComment: '箱标关键字段已读取，置信度满足要求',
+    },
   },
   barcode: {
     key: 'barcode',
     title: '条码自动采集',
-    subtitle: 'PDA 扫码 · 货架多标签采集',
+    subtitle: '固定顶视 · 箱码批量采集',
     taskNo: 'CAP-BARCODE-0522',
-    imageUrl: '/assets/placeholders/capability-barcode.png',
-    imageFrameClass: 'aspect-[16/9]',
+    imageUrl: '/images/purchase-receive-station-overhead.png',
+    cameraId: 'CAM-05',
+    cameraLabel: '主相机 · 顶视条码采集',
     status: 'pass',
-    readyText: 'PDA 扫码图像已就绪：等待检测',
-    infoText: '条码采集：已锁定 8 处货架标签，7 处可读，1 处需近距补扫',
+    readyText: '固定相机已就绪：等待条码采集',
+    infoText: '条码采集：顶视画面锁定 12 张标签，10 张可读，2 张需复核',
     boxes: [
-      { x: 11, y: 39, w: 6, h: 7, label: '左侧箱码', confidence: 96.8, type: 'pass' },
-      { x: 18, y: 38, w: 6, h: 7, label: '左侧箱码', confidence: 96.2, type: 'pass' },
-      { x: 61, y: 36, w: 7, h: 7, label: '右侧箱码', confidence: 97.5, type: 'pass' },
-      { x: 81, y: 16, w: 8, h: 7, label: '上层条码', confidence: 98.4, type: 'pass' },
-      { x: 70, y: 62, w: 7, h: 8, label: '周转箱码', confidence: 95.7, type: 'pass' },
-      { x: 86, y: 62, w: 8, h: 9, label: '近端条码', confidence: 93.1, type: 'warning' },
+      { x: 35.7, y: 20.0, w: 4.8, h: 7.0, label: '箱码 #1', confidence: 98.8, type: 'pass' },
+      { x: 46.6, y: 20.4, w: 4.8, h: 7.0, label: '箱码 #2', confidence: 98.3, type: 'pass' },
+      { x: 57.2, y: 20.8, w: 5.1, h: 7.0, label: '箱码 #3', confidence: 97.8, type: 'pass' },
+      { x: 34.9, y: 36.8, w: 5.0, h: 7.3, label: '箱码 #4', confidence: 98.4, type: 'pass' },
+      { x: 46.1, y: 37.0, w: 5.0, h: 7.2, label: '箱码 #5', confidence: 97.9, type: 'pass' },
+      { x: 57.1, y: 37.4, w: 5.4, h: 7.4, label: '箱码 #6', confidence: 97.6, type: 'pass' },
+      { x: 30.5, y: 72.0, w: 5.0, h: 7.2, label: '散件标签', confidence: 96.7, type: 'pass' },
+      { x: 72.5, y: 72.8, w: 5.7, h: 7.5, label: '散件标签', confidence: 96.2, type: 'pass' },
+      { x: 58.3, y: 72.7, w: 5.0, h: 7.4, label: '小箱标签', confidence: 93.8, type: 'warning' },
     ],
     metrics: [
-      { label: '采集', value: '7 / 8', tone: 'text-warning' },
+      { label: '采集', value: '10 / 12', tone: 'text-warning' },
       { label: '重复码', value: '0', tone: 'text-success' },
-      { label: '补扫', value: '1', tone: 'text-warning' },
+      { label: '复核', value: '2', tone: 'text-warning' },
     ],
     details: [
-      { label: '库位', value: 'A-01-02', tone: 'text-info' },
-      { label: '箱码', value: '7 条可读', tone: 'text-success' },
+      { label: '采集区', value: '收货检测区', tone: 'text-info' },
+      { label: '箱码', value: '10 条可读', tone: 'text-success' },
       { label: '重复', value: '未发现', tone: 'text-success' },
-      { label: '动作', value: '近距补扫', tone: 'text-warning' },
+      { label: '动作', value: '复核 2 张', tone: 'text-warning' },
     ],
     agentLines: [
-      'PDA 扫码图像已接收，正在锁定货架和周转箱标签。',
-      '已识别 8 处候选条码，其中 7 处读取成功。',
-      '近端右侧标签反光较强，建议靠近补扫一次。',
-      '未发现重复条码或无效条码，采集结果可关联当前库位。',
+      '接收固定顶视相机画面，正在锁定外箱、散件和小箱标签。',
+      '已识别 12 张候选标签，其中 10 张条码可读。',
+      '底部小箱标签和右侧散件标签角度偏斜，建议人工复核一次。',
+      '未发现重复条码，采集结果可关联当前检测区任务。',
     ],
-    suggestion: '先补扫右侧近端标签，再提交本库位采集结果。',
+    suggestion: '条码批量采集完成，建议复核 2 张角度偏斜标签后提交。',
+    summaryTitle: '条码采集完成',
+    resultCardType: 'warning',
+    badgeStatus: 'L2警示',
+    taskInfo: {
+      orderNo: 'BAR-2026-0522',
+      source: '收货检测区 CAM-05',
+      supplier: '混合物料',
+      totalItems: '12 标签',
+      weight: '一托+散件',
+      arrivalTime: '10:29:08',
+    },
+    itemRows: [
+      { lineNo: 1, name: '托盘外箱标签', mode: '批量', status: '通过' },
+      { lineNo: 2, name: '散件标签', mode: '批量', status: '通过' },
+      { lineNo: 3, name: '小箱标签', mode: '复核', status: '复核' },
+      { lineNo: 4, name: '下一批标签', mode: '待检', status: '待检' },
+    ],
+    miniCards: {
+      history: { title: '采集结果', value: '10 / 12 可读', valueColor: 'text-warning' },
+      standard: { title: '条码标准', value: '版本 v1.9' },
+      link: { title: 'BAR-0522', value: '待复核', valueColor: 'text-warning' },
+    },
+    collaboration: {
+      woNo: 'WO-BAR-0522',
+      reminderStatus: '已提醒',
+      backendStatus: '已接收',
+      handler: '检测员-李',
+      handlerComment: '2 张标签角度偏斜，需人工复核后提交',
+    },
   },
 };
 
 const isCapabilityDemoKey = (value: string | null): value is CapabilityDemoKey =>
   value === 'counting' || value === 'label-check' || value === 'ocr' || value === 'barcode';
 
-const DemoAgentPanel: FC<{
+const capabilityIconMap: Record<CapabilityDemoKey, ReactNode> = {
+  counting: <Boxes className="h-4 w-4 text-info" />,
+  'label-check': <Tag className="h-4 w-4 text-info" />,
+  ocr: <FileText className="h-4 w-4 text-info" />,
+  barcode: <Barcode className="h-4 w-4 text-info" />,
+};
+
+const capabilityPipelineChips: PipelineChipDef[] = [
+  { key: 'visualCount', name: '视觉件数', icon: <Boxes className="h-3.5 w-3.5" /> },
+  { key: 'labelCompliance', name: '标签合规', icon: <Tag className="h-3.5 w-3.5" /> },
+  { key: 'modelOcr', name: '关键字段', icon: <FileText className="h-3.5 w-3.5" /> },
+  { key: 'fieldOcr', name: '条码采集', icon: <ScanLine className="h-3.5 w-3.5" /> },
+  { key: 'multiModal', name: '多模态', icon: <Layers className="h-3.5 w-3.5" /> },
+  { key: 'defect', name: '外观缺陷', icon: <PackageX className="h-3.5 w-3.5" /> },
+  { key: 'videoViolation', name: '视频违规', icon: <Eye className="h-3.5 w-3.5" /> },
+];
+
+const toScriptedBoxes = (config: CapabilityDemoConfig): ScriptedItem['boxes'] =>
+  config.boxes.map((box, index) => ({
+    id: `${config.key}-${index}`,
+    x: box.x,
+    y: box.y,
+    w: box.w,
+    h: box.h,
+    label: box.label,
+    confidence: box.confidence,
+    type: box.type === 'danger' ? 'danger' : box.type === 'warning' ? 'warning' : 'pass',
+    ocr: index < 3 ? [{ label: config.details[index]?.label ?? '结果', value: config.details[index]?.value ?? box.label }] : undefined,
+    appearAtStep: index < 3 ? 2 : 3,
+  }));
+
+const capabilityStageLines = (config: CapabilityDemoConfig): ScriptedItem['stepLines'] => [
+  `接收 ${config.cameraId} 图像数据流，画面来源：${config.taskInfo.source}`,
+  config.agentLines[0] ?? config.readyText,
+  config.agentLines[1] ?? config.infoText,
+  config.agentLines[2] ?? config.infoText,
+  config.agentLines[3] ?? config.suggestion,
+];
+
+const capabilityStageChips = (config: CapabilityDemoConfig): ScriptedItem['stepChips'] => [
+  [{ label: '相机', value: config.cameraId }],
+  [{ label: '模式', value: config.title }],
+  config.details.slice(0, 3).map((item) => ({ label: item.label, value: item.value })),
+  config.details.slice(1, 4).map((item) => ({ label: item.label, value: item.value })),
+  [{ label: config.metrics[0]?.label ?? '结果', value: config.metrics[0]?.value ?? config.summaryTitle }],
+];
+
+const capabilityOutcome = (config: CapabilityDemoConfig): ScriptedItem['outcome'] =>
+  config.resultCardType === 'pass' ? 'pass' : 'l2';
+
+const toCapabilityScriptItem = (config: CapabilityDemoConfig): ScriptedItem => ({
+  orderNo: config.taskNo,
+  materialName: config.title,
+  qty: config.taskInfo.totalItems,
+  category: config.key === 'ocr' ? '关键件' : config.key === 'barcode' ? '标准件' : '标准件',
+  thumbUrl: config.imageUrl,
+  cameraImageUrl: config.imageUrl,
+  outcome: capabilityOutcome(config),
+  stepLines: capabilityStageLines(config),
+  stepChips: capabilityStageChips(config),
+  boxes: toScriptedBoxes(config),
+  summary: {
+    title: config.summaryTitle,
+    confidence:
+      config.boxes.length > 0
+        ? `${Math.min(...config.boxes.map((box) => box.confidence ?? 99)).toFixed(1)}%`
+        : '98.0%',
+    latency: '1.1s',
+    model: 'Quality-v3.2',
+    lines: config.details.map((item) => ({ label: item.label, value: item.value })),
+    packageGroups:
+      config.key === 'barcode'
+        ? [
+            { label: '箱码', count: '10 条可读', tags: '外箱 / 散件', note: '未发现重复条码' },
+            { label: '复核项', count: '2 张', tags: '偏斜标签', note: '人工确认后提交' },
+            { label: '采集区', count: '1 个', tags: '收货检测区', note: '结果关联当前任务' },
+          ]
+        : config.key === 'counting'
+          ? [
+              { label: '水箱', count: '3 箱', tags: '20 瓶/箱', note: '合计 60 瓶' },
+              { label: '遮挡', count: '0 处', tags: '顶视画面', note: '瓶盖阵列完整' },
+              { label: '记录', count: '1 条', tags: '点数记录', note: '截图与结果已保存' },
+            ]
+          : undefined,
+  },
+  agentSuggestion: config.suggestion,
+  badges:
+    capabilityOutcome(config) === 'l2'
+      ? {
+          wo: config.collaboration.woNo ?? `WO-${config.taskNo}`,
+        }
+      : undefined,
+});
+
+const CapabilityTaskPanel: FC<{
   started: boolean;
   config: CapabilityDemoConfig;
 }> = ({ started, config }) => {
-  const [visibleText, setVisibleText] = useState('');
-  const fullText = config.agentLines.join('\n');
-  const completed = started && visibleText.length >= fullText.length;
-
-  useEffect(() => {
-    setVisibleText('');
-    if (!started) return undefined;
-
-    let index = 0;
-    const timer = window.setInterval(() => {
-      index += 1;
-      setVisibleText(fullText.slice(0, index));
-      if (index >= fullText.length) {
-        window.clearInterval(timer);
-      }
-    }, 22);
-
-    return () => window.clearInterval(timer);
-  }, [fullText, started]);
+  const rowTone = {
+    '通过': 'bg-success',
+    '复核': 'bg-warning',
+    '待检': 'bg-text-muted',
+    '异常': 'bg-danger',
+  } as const;
 
   return (
-    <aside className="flex h-full w-[340px] flex-col border-l border-border bg-primary p-3">
-      <div className="flex items-center gap-2">
-        <Bot className="h-4 w-4 text-info" />
-        <h3 className="text-sm font-semibold text-text-primary">Agent 识别建议</h3>
-        <span className={cn('ml-auto rounded px-2 py-0.5 text-[10px] font-semibold', started ? 'bg-info/15 text-info' : 'bg-text-muted/15 text-text-muted')}>
-          {started ? (completed ? '已完成' : '识别中') : '待检测'}
-        </span>
-      </div>
-
-      <div className="mt-3 min-h-[220px] rounded-lg bg-[#F8FAFC] p-3">
-        {started ? (
-          <div className="space-y-2">
-            {visibleText.split('\n').map((line, index) => (
-              <p key={`${line}-${index}`} className="text-xs leading-relaxed text-text-secondary">
-                {line}
-                {index === visibleText.split('\n').length - 1 && !completed && (
-                  <span className="ml-0.5 inline-block animate-pulse text-info">▍</span>
-                )}
-              </p>
-            ))}
-          </div>
-        ) : (
-          <div className="flex h-[190px] items-center justify-center text-center">
-            <div>
-              <PlayCircle className="mx-auto h-9 w-9 text-info/45" />
-              <p className="mt-3 text-xs text-text-muted">点击开始检测后显示识别过程</p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="mt-3 grid grid-cols-3 gap-2">
-        {config.metrics.map((item) => (
-          <div key={item.label} className="rounded bg-[#F1F5F9] px-2 py-2 text-center">
-            <p className="text-[10px] text-text-muted">{item.label}</p>
-            <p className={cn('mt-1 font-data text-sm font-bold', started ? item.tone : 'text-text-muted')}>
-              {started ? item.value : '--'}
-            </p>
-          </div>
-        ))}
-      </div>
-
-      <div className="mt-3 rounded-lg bg-[#F1F5F9] p-3">
-        <h4 className="text-xs font-semibold text-text-primary">识别明细</h4>
+    <aside className="flex h-full w-[300px] flex-col border-r border-border bg-primary p-3">
+      <div className="rounded-lg bg-[#F1F5F9] p-3">
+        <h3 className="text-xs font-semibold text-text-primary">任务信息</h3>
         <div className="mt-2 space-y-2">
-          {config.details.map((item) => (
-            <div key={item.label} className="flex items-center justify-between rounded bg-white px-3 py-2 text-xs">
-              <span className="text-text-muted">{item.label}</span>
-              <span className={cn('font-semibold', started ? item.tone : 'text-text-muted')}>
-                {started ? item.value : '待识别'}
+          {[
+            { label: '任务号', value: config.taskInfo.orderNo },
+            { label: '来源', value: config.taskInfo.source },
+            { label: '类别', value: config.taskInfo.supplier },
+            { label: '件数', value: config.taskInfo.totalItems },
+            { label: '重量', value: config.taskInfo.weight },
+            { label: '开始时间', value: config.taskInfo.arrivalTime },
+          ].map((row) => (
+            <div key={row.label} className="flex items-center gap-2">
+              <Boxes className="h-3.5 w-3.5 shrink-0 text-text-muted" />
+              <span className="shrink-0 text-[11px] text-text-muted">{row.label}</span>
+              <span className="ml-auto truncate text-right font-data text-xs text-text-primary">
+                {row.value}
               </span>
             </div>
           ))}
         </div>
       </div>
 
-      {completed && (
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className={cn(
-            'mt-3 rounded-lg border p-3',
-            config.status === 'pass' ? 'border-success/30 bg-success/10' : 'border-warning/40 bg-warning/10',
-          )}
-        >
-          <div className="flex items-center gap-2">
-            {config.status === 'pass' ? (
-              <CheckCircle2 className="h-4 w-4 text-success" />
-            ) : (
-              <AlertTriangle className="h-4 w-4 text-warning" />
-            )}
-            <span className={cn('text-xs font-semibold', config.status === 'pass' ? 'text-success' : 'text-warning')}>
-              Agent 建议
-            </span>
-          </div>
-          <p className="mt-2 text-xs leading-relaxed text-text-secondary">{config.suggestion}</p>
-        </motion.div>
-      )}
+      <div className="mt-3 flex-1 overflow-hidden rounded-lg bg-[#F1F5F9]">
+        <div className="border-b border-border px-3 py-2">
+          <h3 className="text-xs font-semibold text-text-primary">
+            检测清单（{config.itemRows.length}件）
+          </h3>
+        </div>
+        <div className="max-h-[270px] overflow-y-auto p-1.5">
+          {config.itemRows.map((row, index) => (
+            <div
+              key={`${row.lineNo}-${row.name}`}
+              className={cn(
+                'flex items-center gap-2 rounded px-2 py-1.5',
+                index === 0 && 'bg-info/15',
+              )}
+            >
+              <span className="w-5 text-[10px] text-text-muted">{row.lineNo}</span>
+              <span className="flex-1 truncate text-[11px] text-text-primary">{row.name}</span>
+              <span className="rounded bg-primary px-1 py-0.5 text-[10px] text-text-muted">
+                {row.mode}
+              </span>
+              <div className={cn('h-2 w-2 rounded-full', started ? rowTone[row.status] : 'bg-text-muted')} />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-3 rounded-lg border border-info/25 bg-info/10 p-3">
+        <div className="flex items-center gap-2">
+          {capabilityIconMap[config.key]}
+          <p className="text-xs font-semibold text-text-primary">{config.title}</p>
+        </div>
+        <p className="mt-1 text-[11px] leading-relaxed text-text-secondary">
+          {started ? config.infoText : config.readyText}
+        </p>
+      </div>
+
+      <div className="mt-3 flex gap-2">
+        <button className="flex-1 rounded bg-primary py-2 text-xs text-text-secondary transition-colors hover:bg-gray-100">
+          重新检测
+        </button>
+        <button className="flex-1 rounded bg-info py-2 text-xs font-medium text-white transition-colors hover:bg-info/90">
+          确认结果
+        </button>
+      </div>
     </aside>
   );
 };
 
-const CapabilityDemoStation: FC<{ config: CapabilityDemoConfig }> = ({ config }) => {
-  const [started, setStarted] = useState(false);
-
-  useEffect(() => {
-    setStarted(false);
-  }, [config.key]);
+const CapabilityCameraArea: FC<{
+  started: boolean;
+  config: CapabilityDemoConfig;
+  revealedBoxIds: string[];
+}> = ({ started, config, revealedBoxIds }) => {
+  const isPass = config.resultCardType === 'pass';
+  const status =
+    isPass
+      ? 'pass'
+      : config.status === 'tagMissing'
+        ? 'tagMissing'
+        : config.resultCardType === 'danger'
+          ? 'danger'
+          : 'warning';
 
   return (
-    <div className="grid h-full grid-cols-[300px_1fr_340px] bg-primary">
-      <aside className="flex min-h-0 flex-col border-r border-border bg-primary p-3">
-        <div className="rounded-lg bg-[#F1F5F9] p-3">
-          <div className="flex items-center gap-2">
-            {config.key === 'counting' && <Boxes className="h-4 w-4 text-info" />}
-            {config.key === 'label-check' && <Tag className="h-4 w-4 text-info" />}
-            {config.key === 'ocr' && <FileText className="h-4 w-4 text-info" />}
-            {config.key === 'barcode' && <Barcode className="h-4 w-4 text-info" />}
-            <h2 className="text-sm font-semibold text-text-primary">{config.title}</h2>
+    <ImageInspectArea
+      imageUrl={started ? config.imageUrl : config.idleImageUrl ?? config.imageUrl}
+      boxes={
+        started
+          ? config.boxes.filter((_, index) => revealedBoxIds.includes(`${config.key}-${index}`))
+          : []
+      }
+      infoText={started ? config.infoText : config.readyText}
+      status={status}
+      overlayContent={
+        <>
+          <div className="absolute left-2 top-2 flex items-center gap-1.5 rounded bg-black/60 px-2 py-1 backdrop-blur-sm">
+            <span className={cn('h-2 w-2 rounded-full', started ? 'animate-pulse bg-success' : 'bg-info')} />
+            <span className="text-[10px] font-medium text-white">REC</span>
+            <span className="text-[10px] text-white/80">·</span>
+            <span className="font-data text-[10px] text-white/80">{config.cameraId}</span>
           </div>
-          <p className="mt-2 text-xs text-text-secondary">{config.subtitle}</p>
-          <div className="mt-3 rounded bg-white px-3 py-2">
-            <p className="text-[10px] text-text-muted">任务编号</p>
-            <p className="mt-1 font-data text-xs font-semibold text-info">{config.taskNo}</p>
-          </div>
-        </div>
 
-        <div className="mt-3 rounded-lg bg-[#F1F5F9] p-3">
-          <h3 className="text-xs font-semibold text-text-primary">检测项</h3>
-          <div className="mt-2 space-y-2">
-            {config.details.map((item) => (
-              <div key={item.label} className="rounded bg-white px-3 py-2">
-                <p className="text-[10px] text-text-muted">{item.label}</p>
-                <p className={cn('mt-1 text-xs font-semibold', started ? item.tone : 'text-text-primary')}>
-                  {started ? item.value : '待识别'}
-                </p>
+          {!started && (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <div className="relative h-[55%] w-[55%]">
+                <span className="absolute left-0 top-0 h-4 w-4 border-l-2 border-t-2 border-info/80" />
+                <span className="absolute right-0 top-0 h-4 w-4 border-r-2 border-t-2 border-info/80" />
+                <span className="absolute bottom-0 left-0 h-4 w-4 border-b-2 border-l-2 border-info/80" />
+                <span className="absolute bottom-0 right-0 h-4 w-4 border-b-2 border-r-2 border-info/80" />
+                <motion.div
+                  className="absolute inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-info to-transparent"
+                  initial={{ top: '0%' }}
+                  animate={{ top: ['0%', '100%', '0%'] }}
+                  transition={{ duration: 2.4, repeat: Infinity, ease: 'linear' }}
+                />
               </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="mt-auto rounded-lg border border-info/25 bg-info/10 p-3">
-          <p className="text-xs font-semibold text-text-primary">{started ? '检测已启动' : '检测待启动'}</p>
-          <p className="mt-1 text-[11px] leading-relaxed text-text-secondary">
-            {started ? config.infoText : config.readyText}
-          </p>
-        </div>
-      </aside>
-
-      <main className="flex min-h-0 flex-col gap-3 bg-[#F1F5F9] p-3">
-        <div className="flex items-center justify-between rounded-lg border border-info/25 bg-primary px-4 py-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="rounded bg-info px-2 py-0.5 text-[11px] font-bold text-white">DEMO</span>
-              <h1 className="text-sm font-semibold text-text-primary">{config.title}</h1>
-              <span className="font-data text-xs text-text-muted">{config.taskNo}</span>
             </div>
-            <p className="mt-1 text-xs text-text-muted">{started ? config.infoText : config.readyText}</p>
+          )}
+        </>
+      }
+    />
+  );
+};
+
+const CapabilityDemoStation: FC<{ config: CapabilityDemoConfig }> = ({ config }) => {
+  const script = useMemo(() => [toCapabilityScriptItem(config)], [config]);
+  const player = useDetectionPlayer(script);
+
+  useEffect(() => {
+    player.resetScript();
+  }, [config.key, player.resetScript]);
+
+  const started = player.phase !== 'idle' && player.phase !== 'finished';
+  const submitted = player.phase === 'finished';
+  const canStart = player.phase === 'idle';
+  const canReset =
+    player.phase === 'reviewing' ||
+    player.phase === 'awaitingL2Action' ||
+    player.phase === 'finished';
+
+  const handleMainAction = () => {
+    if (canStart) {
+      player.start();
+      return;
+    }
+    if (canReset) {
+      player.resetScript();
+    }
+  };
+
+  const queueItems = [
+    {
+      orderNo: config.taskNo,
+      material: config.title,
+      qty: started ? config.metrics[2]?.value ?? '待检测' : '待检测',
+      category: '当前演示',
+      imageUrl: started ? config.imageUrl : config.idleImageUrl ?? config.imageUrl,
+    },
+    {
+      orderNo: `${config.taskNo}-B`,
+      material: config.key === 'barcode' ? '待采集标签' : '待检测样本',
+      qty: '待检测',
+      category: '待检',
+      imageUrl: config.idleImageUrl ?? config.imageUrl,
+    },
+  ];
+
+  return (
+    <div className="flex h-full">
+      <CapabilityTaskPanel started={started} config={config} />
+
+      <main className="flex flex-1 flex-col gap-2 overflow-hidden bg-[#F1F5F9] p-3">
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={cn(
+            'flex items-center gap-3 rounded-lg border px-3 py-2 transition-colors',
+            started ? 'border-info bg-info/10' : 'border-info/40 bg-gradient-to-r from-info/15 to-info/5',
+          )}
+        >
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-info/20">
+            {capabilityIconMap[config.key]}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span className={cn('rounded px-1.5 py-0.5 text-[10px] font-bold text-white', started ? 'bg-info animate-pulse' : 'bg-info')}>
+                {started ? '检测中' : '待检'}
+              </span>
+              <span className="text-xs font-semibold text-text-primary">{config.title}</span>
+              <span className="font-data text-[11px] text-text-muted">{config.taskNo}</span>
+              <span className="rounded bg-info/15 px-1.5 py-0.5 text-[10px] text-info">{config.subtitle}</span>
+            </div>
+            <div className="mt-1 flex items-center gap-1.5">
+              <span className="rounded bg-success/15 px-1.5 py-0.5 text-[10px] text-success">设备 4/4 在线</span>
+              <span className="text-[10px] text-text-muted">主相机 · 扫码枪 · 视觉识别 · 规则引擎</span>
+            </div>
           </div>
           <button
             type="button"
-            onClick={() => setStarted((value) => !value)}
+            onClick={handleMainAction}
             className={cn(
               'flex items-center gap-1.5 rounded-md px-3 py-2 text-xs font-semibold transition-colors',
               started
                 ? 'bg-[#F1F5F9] text-text-secondary hover:bg-gray-100'
                 : 'bg-info text-white hover:bg-info/90',
             )}
+            disabled={!canStart && !canReset}
           >
-            {started ? <RotateCcw className="h-4 w-4" /> : <PlayCircle className="h-4 w-4" />}
-            {started ? '重新检测' : '开始检测'}
+            {canStart ? <PlayCircle className="h-4 w-4" /> : <RotateCcw className="h-4 w-4" />}
+            {canStart ? '开始检测' : submitted ? '重新检测' : canReset ? '重新检测' : '检测中…'}
           </button>
-        </div>
+        </motion.div>
 
-        <section className={cn('mx-auto flex min-h-0 w-full flex-1 flex-col', config.imageFrameClass)}>
-          <ImageInspectArea
-            imageUrl={config.imageUrl}
-            boxes={started ? config.boxes : []}
-            status={started ? config.status : 'warning'}
-            infoText={started ? config.infoText : config.readyText}
-            overlayContent={
-              !started ? (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="relative h-[58%] w-[58%]">
-                    <span className="absolute left-0 top-0 h-5 w-5 border-l-2 border-t-2 border-info" />
-                    <span className="absolute right-0 top-0 h-5 w-5 border-r-2 border-t-2 border-info" />
-                    <span className="absolute bottom-0 left-0 h-5 w-5 border-b-2 border-l-2 border-info" />
-                    <span className="absolute bottom-0 right-0 h-5 w-5 border-b-2 border-r-2 border-info" />
-                  </div>
-                </div>
-              ) : undefined
-            }
+        <section className="flex min-h-0 w-full flex-1 flex-col">
+          <CapabilityCameraArea
+            config={config}
+            started={started}
+            revealedBoxIds={player.revealedBoxIds}
           />
         </section>
 
-        <section className="grid grid-cols-3 gap-3">
+        <div className="shrink-0 rounded-lg border border-border bg-primary px-3 py-2">
+          <div className="flex items-center gap-2">
+            <Cpu className="h-3.5 w-3.5 text-info" />
+            <h3 className="text-[11px] font-semibold text-text-primary">AI 检测流水线</h3>
+            <span className={cn('rounded px-1.5 py-0.5 text-[10px]', started ? 'bg-success/15 text-success' : 'bg-text-muted/15 text-text-muted')}>
+              {player.phase === 'detecting' ? '推理中' : started ? '推理完成' : '全部就绪'}
+            </span>
+            <span className="ml-auto font-data text-[10px] text-text-muted">推理延迟 ~ 1.2s/件</span>
+          </div>
+          <div className="mt-1.5">
+            <PipelineChipRow chips={capabilityPipelineChips} states={player.pipelineStates} />
+          </div>
+        </div>
+
+        <div className="shrink-0 rounded-lg border border-border bg-primary px-3 py-2">
+          <div className="flex items-center gap-2">
+            <Boxes className="h-3.5 w-3.5 text-text-secondary" />
+            <h3 className="text-[11px] font-semibold text-text-primary">待检任务队列</h3>
+            <span className="rounded bg-[#F1F5F9] px-1.5 py-0.5 text-[10px] text-text-muted">
+              剩余 {started ? 1 : 2} 件
+            </span>
+          </div>
+          <div className="mt-1.5 flex gap-2 overflow-x-auto">
+            {queueItems.map((item, index) => (
+              <div
+                key={item.orderNo}
+                className={cn(
+                  'flex shrink-0 items-center gap-2 rounded-lg border p-1.5 transition-all',
+                  index === 0 ? 'border-info bg-info/10 shadow-md ring-2 ring-info/30' : 'border-border bg-primary',
+                )}
+                style={{ width: 190 }}
+              >
+                <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded bg-[#E2E8F0]">
+                  <img src={item.imageUrl} alt={item.material} className="h-full w-full object-cover" />
+                  <span className="absolute left-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded bg-info px-1 text-[9px] font-bold text-white">
+                    {index === 0 ? '当前' : '待检'}
+                  </span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-data text-[9px] text-text-muted">{item.orderNo}</p>
+                  <p className="truncate text-[11px] font-medium text-text-primary">{item.material}</p>
+                  <div className="mt-0.5 flex items-center justify-between">
+                    <span className="text-[10px] text-text-muted">{item.qty}</span>
+                    <span className="rounded bg-info/10 px-1 py-0.5 text-[9px] text-info">{item.category}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <section className="grid shrink-0 grid-cols-3 gap-2">
           {config.metrics.map((item) => (
-            <div key={item.label} className="rounded-lg bg-primary p-3">
+            <div key={item.label} className="rounded-lg bg-primary px-3 py-2">
               <p className="text-[11px] text-text-muted">{item.label}</p>
               <p className={cn('mt-1 font-data text-lg font-bold', started ? item.tone : 'text-text-muted')}>
                 {started ? item.value : '--'}
@@ -426,7 +760,69 @@ const CapabilityDemoStation: FC<{ config: CapabilityDemoConfig }> = ({ config })
         </section>
       </main>
 
-      <DemoAgentPanel started={started} config={config} />
+      <aside className="flex h-full w-[340px] flex-col border-l border-border bg-primary p-2.5">
+        {player.phase === 'idle' && !player.currentItem ? (
+          <div className="flex h-full flex-col">
+            <div className="flex items-center gap-2 rounded-lg border border-info/20 bg-info/8 px-2.5 py-1.5">
+              <Cpu className="h-4 w-4 shrink-0 text-info" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[11px] font-semibold text-text-primary">
+                  Agent 等待检测：{config.title}
+                </p>
+                <p className="font-data text-[10px] text-text-muted">
+                  {config.taskNo} · 点击开始检测后显示推理过程
+                </p>
+              </div>
+              <span className="rounded bg-info/15 px-1.5 py-0.5 text-[10px] text-info">
+                待命
+              </span>
+            </div>
+            <div className="mt-2 rounded-lg bg-[#F8FAFC] p-2">
+              <p className="text-[11px] leading-relaxed text-text-secondary">
+                当前任务已准备好。开始后，右侧会按接收图像、视觉点数、标签 OCR、字段 OCR、综合判定逐行显示。
+              </p>
+            </div>
+            <div className="mt-2 grid grid-cols-3 gap-1.5">
+              {config.metrics.map((item) => (
+                <div key={item.label} className="rounded bg-[#F1F5F9] px-2 py-1.5 text-center">
+                  <p className="text-[10px] text-text-muted">{item.label}</p>
+                  <p className="mt-0.5 font-data text-xs font-semibold text-text-primary">待识别</p>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={handleMainAction}
+              className="mt-auto flex w-full items-center justify-center gap-1.5 rounded bg-info px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-info/90"
+            >
+              <PlayCircle className="h-4 w-4" />
+              开始检测
+            </button>
+          </div>
+        ) : (
+          <AgentStreamPanel
+            phase={player.phase}
+            currentItem={player.currentItem}
+            streamLines={player.streamLines}
+            pushedBadges={player.pushedBadges}
+            workOrderMessage={player.workOrderMessage}
+            totalCount={1}
+            cursor={player.cursor}
+            onApprovePass={player.approvePass}
+            onAssignL2Review={player.assignL2Review}
+            onHoldL2Review={player.holdL2ForReview}
+            onConfirmL1Block={player.confirmL1Block}
+            onCreateWorkOrder={player.createWorkOrder}
+            passActionStep={8}
+            passActionLabel="确认通过并完成检测"
+            passActionHint="操作员确认后，系统会归档相机截图、识别明细与检测结论。"
+            passSuggestion={config.suggestion}
+            l2ActionStep={8}
+            l2ActionLabel="确认复核并完成检测"
+            l2ActionHint="请按 Agent 建议确认复核动作，系统会保留截图、字段和异常记录。"
+          />
+        )}
+      </aside>
     </div>
   );
 };
@@ -434,7 +830,7 @@ const CapabilityDemoStation: FC<{ config: CapabilityDemoConfig }> = ({ config })
 // ─── State configurations ───
 interface StateConfig {
   title: string;
-  badge: React.ReactNode;
+  badge: ReactNode;
   resultCardType: 'pass' | 'warning' | 'danger';
   alertSeverity?: 'danger' | 'danger-deep' | 'warning';
   alertTitle?: string;

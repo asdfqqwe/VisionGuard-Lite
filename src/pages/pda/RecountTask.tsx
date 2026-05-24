@@ -2,6 +2,7 @@ import type { FC } from 'react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CalendarClock, MonitorCheck, PlayCircle, Send, Smartphone } from 'lucide-react';
+import { DemoStepBadge } from '@/components/shared';
 import { recountTasks } from '@/data/mockData';
 import { cn } from '@/lib/utils';
 
@@ -23,7 +24,7 @@ const taskPlans: Record<string, {
   'RC-001': {
     frequency: '重点库位 · 周度',
     deadline: '今日 16:00',
-    method: 'Station',
+    method: 'PDA',
     dispatchStatus: '已下发',
   },
   'RC-002': {
@@ -49,14 +50,15 @@ const RecountTask: FC = () => {
           <span className="text-sm font-semibold text-text-primary">在库循环盘点演示</span>
         </div>
         <p className="mt-1 text-[11px] leading-relaxed text-text-secondary">
-          推荐处理巡检触发任务 RC-001。点击高亮任务或按钮进入库位核对、数量复点和差异处理。
+          Admin 已按动碰记录和上次盘点日期生成 RC-001。现场人员使用 PDA 接收任务后，先核对库位与货物。
         </p>
         <button
           onClick={() => navigate('/pda/recount', { state: { taskNo: 'RC-001' } })}
           className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded bg-warning text-xs font-semibold text-white"
         >
+          <DemoStepBadge step={1} />
           <PlayCircle className="h-4 w-4" />
-          开始盘点复点
+          开始库位盘点
         </button>
       </div>
 

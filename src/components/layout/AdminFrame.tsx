@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useLocation, useNavigate, Outlet } from 'react-router-dom';
+import { useLocation, useNavigate, Outlet, useSearchParams } from 'react-router-dom';
 import {
   LayoutDashboard,
   Bot,
@@ -51,6 +51,13 @@ const menuItems: MenuItem[] = [
 export const AdminFrame: FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isPurchaseGuide =
+    location.pathname === '/admin/inbound-config' &&
+    searchParams.get('scenario') === 'purchase-receive';
+  const pageTitle = isPurchaseGuide
+    ? '采购到货确认'
+    : menuItems.find((m) => m.path === location.pathname)?.label || '管理后台';
 
   return (
     <div className="flex h-[100dvh] overflow-hidden bg-primary">
@@ -122,7 +129,7 @@ export const AdminFrame: FC = () => {
         <header className="z-30 flex h-14 shrink-0 items-center justify-between border-b border-border-light bg-primary/90 px-6 backdrop-blur-sm">
           <div className="flex items-center gap-2">
             <h2 className="text-sm font-medium text-text-primary">
-              {menuItems.find((m) => m.path === location.pathname)?.label || '管理后台'}
+              {pageTitle}
             </h2>
           </div>
           <div className="flex items-center gap-3">

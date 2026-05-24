@@ -55,7 +55,7 @@ const routeTitles: Record<string, string> = {
   '/pda/recount': '盘点复点',
   '/pda/recount/task': '盘点任务',
   '/pda/recount/result': '盘点结果',
-  '/pda/recount/reprint': '标签补打',
+  '/pda/recount/reprint': '盘点记录',
   '/pda/return/scan': '退料扫码',
   '/pda/return/detail': '退料结果',
   '/pda/trace/verify': '防伪溯源',
@@ -68,7 +68,13 @@ const DEVICE_HEIGHT = 850;
 const MAX_SCALE = 1;
 const MIN_SCALE = 0.35;
 
-function getTitle(path: string): string {
+function getTitle(path: string, search: string): string {
+  if (path === '/pda/problem/handover' && new URLSearchParams(search).get('scenario') === 'recount') {
+    return '盘点差异';
+  }
+  if (path === '/pda/problem/handover' && new URLSearchParams(search).get('scenario') === 'daily-quality-check') {
+    return '抽检核对';
+  }
   if (routeTitles[path]) return routeTitles[path];
   if (path.startsWith('/pda/exceptions/result/')) return '异常结果';
   if (path.startsWith('/pda/report/edit/')) return '编辑上报';
@@ -79,7 +85,7 @@ function getTitle(path: string): string {
 export const PDAFrame: FC<PDAFrameProps> = ({ className }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const title = getTitle(location.pathname);
+  const title = getTitle(location.pathname, location.search);
   const isHome = location.pathname === '/pda' || location.pathname === '/pda/';
   const isMine = location.pathname === '/pda/mine';
   const containerRef = useRef<HTMLDivElement>(null);

@@ -241,7 +241,6 @@ export default function Home() {
             icon={<Smartphone className="h-5 w-5" />}
             title="PDA手持终端"
             description="扫码收货 · 上架拣货 · 巡检盘点 · 异常处理"
-            to="/pda"
             delay={200}
             imageSrc="/images/cover-pda.jpg"
             imageAlt="PDA手持终端封面"
@@ -250,7 +249,6 @@ export default function Home() {
             icon={<Monitor className="h-5 w-5" />}
             title="Station检测工位"
             description="收货检测 · 出库复核 · 包装分流 · AI视觉判定"
-            to="/station"
             delay={320}
             imageSrc="/images/cover-station.jpg"
             imageAlt="Station检测工位封面"
@@ -259,7 +257,6 @@ export default function Home() {
             icon={<LayoutDashboard className="h-5 w-5" />}
             title="Admin管理后台"
             description="工作台 · 数据看板 · 规则配置 · 供应商分析 · 索赔协同"
-            to="/admin"
             delay={440}
             imageSrc="/images/cover-admin.jpg"
             imageAlt="Admin管理后台封面"

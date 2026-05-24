@@ -1,36 +1,47 @@
 import type { FC } from 'react';
 import { useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   AlertTriangle,
+  ArrowRight,
   CheckCircle,
   ClipboardCheck,
   Database,
   FileText,
   PackageCheck,
+  PlayCircle,
   ScanLine,
   Tag,
 } from 'lucide-react';
+import { DemoStepBadge } from '@/components/shared';
 import { returnInboundOrders } from '@/data/mockData';
 import { cn } from '@/lib/utils';
 
 const ReturnDetail: FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const returnNo = (location.state as { returnNo?: string } | null)?.returnNo || 'RT-001';
+  const [searchParams] = useSearchParams();
+  const returnNo = (location.state as { returnNo?: string } | null)?.returnNo || 'TL2025060300017';
   const order = useMemo(
     () => returnInboundOrders.find((item) => item.returnNo === returnNo) ?? returnInboundOrders[0],
     [returnNo],
   );
+  const isProductionReturnGuide = searchParams.get('scenario') === 'production-return';
+  const phase = searchParams.get('phase');
+  const fromStation = isProductionReturnGuide && phase === 'storage';
   const [activeStep, setActiveStep] = useState('条码绑定');
   const [confirmed, setConfirmed] = useState(false);
+  const [fieldConfirmed, setFieldConfirmed] = useState(fromStation);
+  const displayAuditStatus = isProductionReturnGuide ? '已通过' : order.auditStatus;
+  const displayStationStatus = fromStation ? '复检通过' : order.stationStatus;
+  const displayInboundStatus = confirmed ? '已确认' : fromStation ? '待登记' : order.inboundStatus;
 
   const steps = [
     {
       key: '单据审核',
       icon: ClipboardCheck,
-      status: order.auditStatus,
-      tone: order.auditStatus === '已通过' ? 'success' : 'warning',
+      status: displayAuditStatus,
+      tone: displayAuditStatus === '已通过' ? 'success' : 'warning',
       desc: `${order.workshop} · ${order.reason}`,
     },
     {
@@ -52,7 +63,7 @@ const ReturnDetail: FC = () => {
       icon: FileText,
       status: order.checks.ocr,
       tone: order.items.some((item) => item.ocrStatus === '待复核') ? 'warning' : 'success',
-      desc: '料号、批次、数量、供应商',
+      desc: '料号、描述、数量、工单',
     },
     {
       key: '分类入库',
@@ -64,6 +75,27 @@ const ReturnDetail: FC = () => {
   ];
 
   const active = steps.find((step) => step.key === activeStep) ?? steps[1];
+  const mainActionStep = fromStation ? 7 : fieldConfirmed ? 5 : 4;
+  const mainActionText = fromStation
+    ? confirmed
+      ? '已登记分类入库'
+      : '登记分类入库'
+    : fieldConfirmed
+      ? '送 Station 正式复检'
+      : '完成现场验收';
+
+  const handleMainAction = () => {
+    if (fromStation) {
+      setConfirmed(true);
+      return;
+    }
+    if (!fieldConfirmed) {
+      setFieldConfirmed(true);
+      setActiveStep('分类入库');
+      return;
+    }
+    navigate('/station/return-inbound?scenario=production-return', { state: { returnNo: order.returnNo } });
+  };
 
   const renderStepDetail = () => {
     if (active.key === '单据审核') {
@@ -128,11 +160,11 @@ const ReturnDetail: FC = () => {
     }
 
     if (active.key === 'OCR复核') {
-      const fields = ['料号', '批次', '数量', '供应商', '退料原因', '车间', '旧码', '新码'];
+      const fields = ['料号', '描述', '数量', '工单', '退料原因', '车间', '旧码', '新码'];
       return (
         <div className="grid grid-cols-2 gap-2">
           {fields.map((field, index) => {
-            const warn = field === '批次' && order.items.some((item) => item.ocrStatus === '待复核');
+            const warn = field === '工单' && order.items.some((item) => item.ocrStatus === '待复核');
             return (
               <div key={field} className="flex items-center justify-between rounded bg-white px-3 py-2">
                 <span className="text-xs text-text-primary">{field}</span>
@@ -167,7 +199,7 @@ const ReturnDetail: FC = () => {
   };
 
   return (
-    <div className="h-full bg-primary px-4 pt-3 pb-4">
+    <div className="flex min-h-full flex-col bg-primary px-4 py-3">
       {/* Header */}
       <div className="rounded-lg bg-white p-3">
         <div className="flex items-start justify-between gap-2">
@@ -176,14 +208,21 @@ const ReturnDetail: FC = () => {
             <div className="mt-1 text-sm text-text-primary">{order.workshop}退料</div>
             <div className="mt-1 text-xs text-text-muted">退料原因：{order.reason}</div>
           </div>
-          <span className="rounded bg-warning/15 px-2 py-1 text-[11px] font-semibold text-warning">
-            {order.auditStatus}
+          <span
+            className={cn(
+              'rounded px-2 py-1 text-[11px] font-semibold',
+              displayAuditStatus === '已通过' ? 'bg-success/15 text-success' : 'bg-warning/15 text-warning',
+            )}
+          >
+            {displayAuditStatus}
           </span>
         </div>
         <div className="mt-3 grid grid-cols-3 gap-2 text-center">
           <div className="rounded bg-[#F1F5F9] px-2 py-1.5">
             <p className="text-[10px] text-text-muted">复检</p>
-            <p className="mt-0.5 text-[11px] font-semibold text-info">{order.stationStatus}</p>
+            <p className={cn('mt-0.5 text-[11px] font-semibold', fromStation ? 'text-success' : 'text-info')}>
+              {displayStationStatus}
+            </p>
           </div>
           <div className="rounded bg-[#F1F5F9] px-2 py-1.5">
             <p className="text-[10px] text-text-muted">数量</p>
@@ -191,14 +230,43 @@ const ReturnDetail: FC = () => {
           </div>
           <div className="rounded bg-[#F1F5F9] px-2 py-1.5">
             <p className="text-[10px] text-text-muted">入库</p>
-            <p className="mt-0.5 text-[11px] font-semibold text-success">
-              {confirmed ? '已确认' : order.inboundStatus}
+            <p className={cn('mt-0.5 text-[11px] font-semibold', confirmed ? 'text-success' : 'text-warning')}>
+              {displayInboundStatus}
             </p>
           </div>
         </div>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-2">
+      {isProductionReturnGuide && (
+        <div className="mt-3 rounded-lg border-2 border-info bg-info/10 p-3 shadow-[0_0_0_3px_rgba(59,130,246,0.08)]">
+          <div className="flex items-start gap-2">
+            <PlayCircle className="mt-0.5 h-4 w-4 shrink-0 text-info" />
+            <div>
+              <p className="text-xs font-semibold text-text-primary">
+                {fromStation ? 'Station 已回传复检结论' : '现场验收采集'}
+              </p>
+              <p className="mt-1 text-[11px] leading-relaxed text-text-secondary">
+                {fromStation
+                  ? '现场人员只需要按 Station 结论登记库位：合格件回可用库存，存疑件进入临时位。'
+                  : '已读取退料单。请核对箱内实物、退料数量、退料原因和供应商信息，并拍照留存。'}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleMainAction}
+            className={cn(
+              'mt-3 flex h-11 w-full items-center justify-center gap-2 rounded text-sm font-semibold text-white shadow-[0_10px_20px_rgba(59,130,246,0.20)]',
+              fromStation ? 'bg-success' : fieldConfirmed ? 'bg-accent-gradient' : 'bg-info',
+            )}
+          >
+            <DemoStepBadge step={mainActionStep} />
+            {fromStation ? <PackageCheck className="h-4 w-4" /> : fieldConfirmed ? <ArrowRight className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
+            {mainActionText}
+          </button>
+        </div>
+      )}
+
+      <div className={cn('mt-3 grid grid-cols-2 gap-2', isProductionReturnGuide && 'hidden')}>
         <button
           onClick={() => navigate('/station/return-inbound?scenario=production-return')}
           className="flex h-10 items-center justify-center gap-1.5 rounded bg-info text-xs font-semibold text-white"
@@ -215,14 +283,14 @@ const ReturnDetail: FC = () => {
         </button>
       </div>
 
-      <div className="mt-3 rounded-lg border border-info/25 bg-info/10 p-3">
+      <div className={cn('mt-3 rounded-lg border border-info/25 bg-info/10 p-3', isProductionReturnGuide && 'hidden')}>
         <p className="text-xs font-semibold text-text-primary">下一步操作</p>
         <p className="mt-1 text-[11px] leading-relaxed text-text-secondary">
           当前退料单已完成主要信息核对。若要展示视觉复检，请点击“送 Station 复检”；若作为 PDA 端演示，可直接点击“确认入库”。
         </p>
       </div>
 
-      <div className="mt-4">
+      <div className="mt-3">
         <h3 className="mb-2 text-sm font-semibold text-text-primary">退料入库处理</h3>
         <div className="flex gap-2 overflow-x-auto pb-1">
           {steps.map((step) => {
@@ -259,7 +327,7 @@ const ReturnDetail: FC = () => {
               active.tone === 'success' ? 'bg-success/15 text-success' : 'bg-warning/15 text-warning',
             )}
           >
-            {active.status}
+            {fieldConfirmed && active.key === '条码绑定' ? '现场已采集' : active.status}
           </span>
         </div>
         {renderStepDetail()}
@@ -273,15 +341,15 @@ const ReturnDetail: FC = () => {
         <div className="mt-2 space-y-1 text-[11px] text-text-secondary">
           <div className="flex justify-between">
             <span>Admin</span>
-            <span className="text-warning">退料单待审核</span>
+            <span className="text-success">退料单已审核并下发</span>
           </div>
           <div className="flex justify-between">
             <span>Station</span>
-            <span className="text-info">{order.station} 复检中</span>
+            <span className={cn(fromStation ? 'text-success' : 'text-info')}>{fromStation ? '复检结论已回传' : `${order.station} 待正式复检`}</span>
           </div>
           <div className="flex justify-between">
             <span>PDA</span>
-            <span className="text-success">可执行扫码绑定与入库</span>
+            <span className="text-success">{fromStation ? '登记分类入库' : '现场采集与条码重绑'}</span>
           </div>
         </div>
       </div>
@@ -297,7 +365,9 @@ const ReturnDetail: FC = () => {
           <div>
             <span className="text-xs font-semibold text-info">Agent建议：</span>
             <p className="mt-1 text-xs text-text-secondary">
-              退料件数一致，建议先完成雨刮电机新码采集，再把发动机线束放入临时位等待批次人工确认，其余物料可分类入库。
+              {fromStation
+                ? 'Station 已回传复检结论：数量一致，标签与条码记录已留存。请按建议库位登记入库；若后续发现存疑标签，再放入临时位。'
+                : `已识别退料单 ${order.returnNo}。建议进入现场验收，核对退料数量、退料原因、供应商信息，并拍照留存。`}
             </p>
           </div>
         </div>
@@ -309,7 +379,7 @@ const ReturnDetail: FC = () => {
         </div>
       )}
 
-      <div className="mt-3 rounded-lg bg-white p-3">
+      <div className={cn('mt-3 rounded-lg bg-white p-3', (!confirmed || (!fromStation && isProductionReturnGuide)) && 'hidden')}>
         <button
           onClick={() => navigate('/pda/putaway/task', { state: { fromReturn: true, returnNo: order.returnNo } })}
           className="flex w-full items-center justify-between text-left"
@@ -323,7 +393,7 @@ const ReturnDetail: FC = () => {
       </div>
 
       {/* Bottom Actions */}
-      <div className="mt-4 flex gap-3">
+      <div className={cn('mt-auto flex gap-3 pt-3', isProductionReturnGuide && 'hidden')}>
         <button
           onClick={() => navigate('/pda/return/scan')}
           className="flex h-11 flex-1 items-center justify-center rounded border border-border bg-white text-sm text-text-secondary"

@@ -1,8 +1,9 @@
 import type { FC } from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowRight, ScanLine } from 'lucide-react';
+import { ArrowRight, ScanLine, PlayCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { DemoStepBadge } from '@/components/shared';
 import { purchaseReceiveGuide } from '@/data/purchaseReceiveGuide';
 
 const recentScans = [
@@ -16,13 +17,40 @@ const ReceiveScan: FC = () => {
   const [searchParams] = useSearchParams();
   const isPurchaseGuide = searchParams.get('scenario') === 'purchase-receive';
   const defaultScannedCode = isPurchaseGuide ? purchaseReceiveGuide.scannedCode : 'PO-007';
-  const [input, setInput] = useState(defaultScannedCode);
+  const [scanStarted, setScanStarted] = useState(!isPurchaseGuide);
+  const [typedText, setTypedText] = useState(isPurchaseGuide ? '' : defaultScannedCode);
+  const input = typedText;
 
   const detailPath = isPurchaseGuide ? '/pda/receive/detail?scenario=purchase-receive' : '/pda/receive/detail';
 
   const handleConfirm = () => {
+    if (isPurchaseGuide && !scanStarted) {
+      setScanStarted(true);
+      return;
+    }
+    if (isPurchaseGuide && typedText.length < defaultScannedCode.length) {
+      return;
+    }
     navigate(detailPath, { state: { scannedCode: input.trim() || defaultScannedCode } });
   };
+
+  useEffect(() => {
+    if (!isPurchaseGuide || !scanStarted) return undefined;
+
+    setTypedText('');
+    let index = 0;
+    const timer = window.setInterval(() => {
+      index += 1;
+      setTypedText(defaultScannedCode.slice(0, index));
+      if (index >= defaultScannedCode.length) {
+        window.clearInterval(timer);
+      }
+    }, 55);
+
+    return () => window.clearInterval(timer);
+  }, [defaultScannedCode, isPurchaseGuide, scanStarted]);
+
+  const scanDone = !isPurchaseGuide || typedText.length >= defaultScannedCode.length;
 
   return (
     <div className="flex h-full flex-col bg-primary px-4 py-3">
@@ -33,7 +61,7 @@ const ReceiveScan: FC = () => {
           </div>
           <h2 className="mt-2 text-sm font-semibold text-text-primary">扫描托码和箱码</h2>
           <p className="mt-1 text-[11px] leading-relaxed text-text-secondary">
-            当前画面已识别托码、箱码、料号和数量，确认后进入字段核对。
+            先采集托码、箱码和现场照片。PDA 做预读，是否需要 Station 由 Agent 判断。
           </p>
         </div>
       )}
@@ -69,13 +97,13 @@ const ReceiveScan: FC = () => {
       <div className="mt-2">
         <div className="mb-2 flex items-center gap-2">
           <div className="h-px flex-1 bg-border" />
-          <span className="text-[11px] text-text-muted">扫码结果已识别</span>
+          <span className="text-[11px] text-text-muted">{scanDone ? '扫码结果已识别' : '等待扫码识别'}</span>
           <div className="h-px flex-1 bg-border" />
         </div>
         <div className="flex gap-2">
           <input
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => setTypedText(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleConfirm()}
             placeholder="托码或箱码"
             className={cn(
@@ -85,11 +113,14 @@ const ReceiveScan: FC = () => {
           />
           <button
             onClick={handleConfirm}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded bg-accent text-primary"
+            className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded text-primary', scanDone ? 'bg-accent' : 'bg-info text-white')}
           >
-            <ArrowRight className="h-5 w-5" />
+            {scanDone ? <ArrowRight className="h-5 w-5" /> : <PlayCircle className="h-5 w-5" />}
           </button>
         </div>
+        {isPurchaseGuide && scanStarted && !scanDone && (
+          <p className="mt-2 text-[11px] text-info">正在读取托码…</p>
+        )}
       </div>
 
       {/* Recent Scans */}
@@ -114,11 +145,13 @@ const ReceiveScan: FC = () => {
         <button
           onClick={handleConfirm}
           className={cn(
-            'h-12 w-full rounded-md bg-accent-gradient text-sm font-semibold text-white shadow-[0_0_0_4px_rgba(245,158,11,0.18)]',
+            'flex h-12 w-full items-center justify-center gap-2 rounded-md bg-accent-gradient text-sm font-semibold text-white shadow-[0_0_0_4px_rgba(245,158,11,0.18)]',
             'active:scale-[0.98]',
           )}
         >
-          {isPurchaseGuide ? '扫码并核对字段' : '开始扫码'}
+          {isPurchaseGuide && <DemoStepBadge step={scanDone ? 4 : 3} />}
+          {isPurchaseGuide ? (scanDone ? <ArrowRight className="h-4 w-4" /> : <PlayCircle className="h-4 w-4" />) : <ScanLine className="h-4 w-4" />}
+          {isPurchaseGuide ? (scanDone ? '进入采集预读' : '开始现场采集') : '开始扫码'}
         </button>
       </div>
 

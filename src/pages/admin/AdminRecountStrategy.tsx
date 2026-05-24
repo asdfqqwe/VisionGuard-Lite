@@ -5,7 +5,6 @@ import {
   CheckCircle2,
   ClipboardList,
   FileText,
-  Printer,
   Settings,
   Play,
   ChevronDown,
@@ -51,7 +50,7 @@ const dispatchTasks = [
     material: '矿泉水',
     frequency: '重点库位 · 周度',
     executor: 'PDA-07 王工',
-    station: 'Station-03',
+    method: 'PDA 扫库位码 / 货物码',
     status: '执行中',
   },
   {
@@ -60,7 +59,7 @@ const dispatchTasks = [
     material: '前轮轴承',
     frequency: '动碰 · 实时',
     executor: 'PDA-03 李工',
-    station: '移动 PDA',
+    method: 'PDA 扫码点数',
     status: '已完成',
   },
   {
@@ -69,7 +68,7 @@ const dispatchTasks = [
     material: '5W-40 机油',
     frequency: '静态 · 月度',
     executor: 'PDA-11 周工',
-    station: 'Station-02',
+    method: 'PDA 拍照留存',
     status: '待下发',
   },
 ];
@@ -80,8 +79,8 @@ const resultReports = [
 ];
 
 const diffActions = [
-  { issue: '漏盘', material: '矿泉水', owner: '巡检员-王', action: '人工复核 + 查监控', status: '处理中' },
-  { issue: '标签缺失', material: '丁腈手套', owner: '仓管员-陈', action: '补打标签 + 复拍', status: '待整改' },
+  { issue: '漏盘 2 箱', material: '矿泉水', owner: '仓库主管-王', action: '核查移库、领用和报损记录', status: '处理中' },
+  { issue: '库位复点', material: '矿泉水', owner: '巡检员-王', action: 'PDA 复扫 A-03-05', status: '待处理' },
 ];
 
 export const AdminRecountStrategy: FC = () => {
@@ -239,19 +238,19 @@ export const AdminRecountStrategy: FC = () => {
             <span className="text-sm font-semibold text-text-primary">待处理差异</span>
           </div>
           <p className="mt-2 font-data text-2xl font-bold text-warning">{diffActions.length}</p>
-          <p className="mt-1 text-xs text-text-muted">账实不符和标签整改</p>
+          <p className="mt-1 text-xs text-text-muted">账实不符待核查</p>
         </div>
       </div>
 
       <div className="mb-6 rounded-lg bg-gray-100 p-5">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-text-primary">任务下发与执行状态</h3>
-          <span className="text-xs text-text-muted">Admin 下发，PDA 执行，Station 复核</span>
+          <span className="text-xs text-text-muted">Admin 下发，PDA 现场执行</span>
         </div>
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border-light">
-              {['任务', '库位', '物资', '频次', '执行人', '检测方式', '状态'].map((head) => (
+              {['任务', '库位', '物资', '频次', '执行人', '现场方式', '状态'].map((head) => (
                 <th key={head} className="px-2 py-2 text-left text-[10px] font-semibold text-text-muted">{head}</th>
               ))}
             </tr>
@@ -264,7 +263,7 @@ export const AdminRecountStrategy: FC = () => {
                 <td className="px-2 py-2 text-xs text-text-secondary">{task.material}</td>
                 <td className="px-2 py-2 text-xs text-text-secondary">{task.frequency}</td>
                 <td className="px-2 py-2 text-xs text-text-secondary">{task.executor}</td>
-                <td className="px-2 py-2 text-xs text-text-secondary">{task.station}</td>
+                <td className="px-2 py-2 text-xs text-text-secondary">{task.method}</td>
                 <td className="px-2 py-2">
                   <StatusBadge status={task.status} />
                 </td>
@@ -354,8 +353,8 @@ export const AdminRecountStrategy: FC = () => {
 
         <div className="rounded-lg bg-gray-100 p-5">
           <div className="mb-4 flex items-center gap-2">
-            <Printer className="h-4 w-4 text-warning" />
-            <h3 className="text-sm font-semibold text-text-primary">差异与标签整改</h3>
+            <AlertTriangle className="h-4 w-4 text-warning" />
+            <h3 className="text-sm font-semibold text-text-primary">盘点差异处理</h3>
           </div>
           <div className="space-y-2">
             {diffActions.map((item) => (

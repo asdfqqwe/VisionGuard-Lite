@@ -1,4 +1,4 @@
-import type { FC } from 'react';
+import { useEffect, useRef, useState, type FC } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSearchParams } from 'react-router-dom';
 import {
@@ -10,6 +10,7 @@ import {
   WifiOff,
   PackageSearch,
   PackageCheck,
+  Smartphone,
   AlertOctagon,
   AlertTriangle,
   ScanLine,
@@ -32,8 +33,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { useData } from '@/context/DataContext';
 import { cn } from '@/lib/utils';
-import { FullScreenAlert } from '@/components/shared';
-import { purchaseReceiveGuide } from '@/data/purchaseReceiveGuide';
+import { DemoStepBadge, FullScreenAlert } from '@/components/shared';
 import {
   detectionScript,
   type DetectionBox as DetectionBoxData,
@@ -75,90 +75,142 @@ const CameraPreview: FC<CameraPreviewProps> = ({
   revealedBoxIds = [],
   alertPulse = false,
   scanning = false,
-}) => (
-  <div
-    className={cn(
-      'relative flex min-h-0 flex-1 overflow-hidden rounded-lg border bg-[#0F172A] transition-shadow',
-      alertPulse
-        ? 'border-l1-badge shadow-[0_0_0_2px_rgba(220,38,38,0.28)]'
-        : 'border-border',
-    )}
-  >
-    {/* Image */}
-    <div className="relative h-full w-full overflow-hidden bg-gradient-to-br from-[#1E293B] to-[#0F172A]">
-      <img
-        src={imageUrl}
-        alt={label}
-        className="h-full w-full object-contain opacity-90"
-        onError={(e) => {
-          (e.currentTarget as HTMLImageElement).style.opacity = '0';
-        }}
-      />
+}) => {
+  const frameRef = useRef<HTMLDivElement>(null);
+  const [frameSize, setFrameSize] = useState({ width: 0, height: 0 });
+  const [imageSize, setImageSize] = useState({ width: 16, height: 9 });
 
-      {/* Center crosshair / framing reticle (only show when not actively detecting boxes) */}
-      {revealedBoxIds.length === 0 && (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <div className="relative h-[55%] w-[55%]">
-            <span className="absolute left-0 top-0 h-4 w-4 border-l-2 border-t-2 border-info/80" />
-            <span className="absolute right-0 top-0 h-4 w-4 border-r-2 border-t-2 border-info/80" />
-            <span className="absolute bottom-0 left-0 h-4 w-4 border-b-2 border-l-2 border-info/80" />
-            <span className="absolute bottom-0 right-0 h-4 w-4 border-b-2 border-r-2 border-info/80" />
-            <motion.div
-              className={cn(
-                'absolute inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-info to-transparent',
-                scanning && 'shadow-[0_0_8px_2px_rgba(59,130,246,0.5)]',
-              )}
-              initial={{ top: '0%' }}
-              animate={{ top: ['0%', '100%', '0%'] }}
-              transition={{
-                duration: scanning ? 1.5 : 3,
-                repeat: Infinity,
-                ease: 'linear',
-              }}
-            />
-          </div>
-        </div>
+  useEffect(() => {
+    const node = frameRef.current;
+    if (!node) return;
+
+    const updateFrameSize = () => {
+      const rect = node.getBoundingClientRect();
+      setFrameSize({ width: rect.width, height: rect.height });
+    };
+    updateFrameSize();
+
+    const observer = new ResizeObserver(updateFrameSize);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  const frameRatio = frameSize.width > 0 && frameSize.height > 0
+    ? frameSize.width / frameSize.height
+    : 16 / 9;
+  const imageRatio = imageSize.width / imageSize.height;
+  const layerWidth = frameRatio > imageRatio ? frameSize.height * imageRatio : frameSize.width;
+  const layerHeight = frameRatio > imageRatio ? frameSize.height : frameSize.width / imageRatio;
+  const layerStyle = frameSize.width > 0 && frameSize.height > 0
+    ? {
+        left: `${(frameSize.width - layerWidth) / 2}px`,
+        top: `${(frameSize.height - layerHeight) / 2}px`,
+        width: `${layerWidth}px`,
+        height: `${layerHeight}px`,
+      }
+    : {
+        left: 0,
+        top: 0,
+        width: '100%',
+        height: '100%',
+      };
+
+  return (
+    <div
+      className={cn(
+        'relative flex min-h-0 flex-1 overflow-hidden rounded-lg border bg-[#0F172A] transition-shadow',
+        alertPulse
+          ? 'border-l1-badge shadow-[0_0_0_2px_rgba(220,38,38,0.28)]'
+          : 'border-border',
       )}
+    >
+      {/* Image */}
+      <div
+        ref={frameRef}
+        className="relative h-full w-full overflow-hidden bg-gradient-to-br from-[#1E293B] to-[#0F172A]"
+      >
+        <div className="absolute overflow-visible" style={layerStyle}>
+          <img
+            src={imageUrl}
+            alt={label}
+            className="h-full w-full object-fill opacity-90"
+            onLoad={(e) => {
+              const img = e.currentTarget;
+              if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+                setImageSize({ width: img.naturalWidth, height: img.naturalHeight });
+              }
+            }}
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).style.opacity = '0';
+            }}
+          />
 
-      {/* Detection box overlay */}
-      {overlayBoxes.map((box) => (
-        <DetectionBox
-          key={box.id}
-          box={box}
-          revealed={revealedBoxIds.includes(box.id)}
-        />
-      ))}
+          {/* Center crosshair / framing reticle (only show when not actively detecting boxes) */}
+          {revealedBoxIds.length === 0 && (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <div className="relative h-[55%] w-[55%]">
+                <span className="absolute left-0 top-0 h-4 w-4 border-l-2 border-t-2 border-info/80" />
+                <span className="absolute right-0 top-0 h-4 w-4 border-r-2 border-t-2 border-info/80" />
+                <span className="absolute bottom-0 left-0 h-4 w-4 border-b-2 border-l-2 border-info/80" />
+                <span className="absolute bottom-0 right-0 h-4 w-4 border-b-2 border-r-2 border-info/80" />
+                <motion.div
+                  className={cn(
+                    'absolute inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-info to-transparent',
+                    scanning && 'shadow-[0_0_8px_2px_rgba(59,130,246,0.5)]',
+                  )}
+                  initial={{ top: '0%' }}
+                  animate={{ top: ['0%', '100%', '0%'] }}
+                  transition={{
+                    duration: scanning ? 1.5 : 3,
+                    repeat: Infinity,
+                    ease: 'linear',
+                  }}
+                />
+              </div>
+            </div>
+          )}
 
-      {/* Top-left tag */}
-      <div className="absolute left-2 top-2 flex items-center gap-1.5 rounded bg-black/60 px-2 py-1 backdrop-blur-sm">
-        <CircleDot
-          className={cn('h-3 w-3', online ? 'text-danger animate-pulse' : 'text-text-muted')}
-        />
-        <span className="text-[10px] font-medium text-white">REC</span>
-        <span className="text-[10px] text-white/80">·</span>
-        <span className="text-[10px] font-mono text-white/90">{cameraId}</span>
-      </div>
+          {/* Detection box overlay */}
+          {overlayBoxes.map((box) => (
+            <DetectionBox
+              key={box.id}
+              box={box}
+              revealed={revealedBoxIds.includes(box.id)}
+            />
+          ))}
+        </div>
 
-      {/* Top-right specs */}
-      <div className="absolute right-2 top-2 flex flex-col items-end gap-0.5">
-        <span className="rounded bg-black/60 px-1.5 py-0.5 font-mono text-[9px] text-white/90 backdrop-blur-sm">
-          {resolution}
-        </span>
-        <span className="rounded bg-black/60 px-1.5 py-0.5 font-mono text-[9px] text-white/90 backdrop-blur-sm">
-          {fps}fps
-        </span>
-      </div>
+        {/* Top-left tag */}
+        <div className="absolute left-2 top-2 flex items-center gap-1.5 rounded bg-black/60 px-2 py-1 backdrop-blur-sm">
+          <CircleDot
+            className={cn('h-3 w-3', online ? 'text-danger animate-pulse' : 'text-text-muted')}
+          />
+          <span className="text-[10px] font-medium text-white">REC</span>
+          <span className="text-[10px] text-white/80">·</span>
+          <span className="text-[10px] font-mono text-white/90">{cameraId}</span>
+        </div>
 
-      {/* Bottom label */}
-      <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5">
-        <span className="text-[11px] font-medium text-white">{label}</span>
-        <span className="font-mono text-[10px] text-white/70">
-          {scanning ? '检测中…' : '就绪'}
-        </span>
+        {/* Top-right specs */}
+        <div className="absolute right-2 top-2 flex flex-col items-end gap-0.5">
+          <span className="rounded bg-black/60 px-1.5 py-0.5 font-mono text-[9px] text-white/90 backdrop-blur-sm">
+            {resolution}
+          </span>
+          <span className="rounded bg-black/60 px-1.5 py-0.5 font-mono text-[9px] text-white/90 backdrop-blur-sm">
+            {fps}fps
+          </span>
+        </div>
+
+        {/* Bottom label */}
+        <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5">
+          <span className="text-[11px] font-medium text-white">{label}</span>
+          <span className="font-mono text-[10px] text-white/70">
+            {scanning ? '检测中…' : '就绪'}
+          </span>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 // ─── Queue item card ───
 interface QueueItemProps {
@@ -340,13 +392,8 @@ const StationIdle: FC = () => {
     },
     {
       time: '08:46',
-      content: 'OCR 抽检标签 APX-74218 字段已读取，供应商编码、批次、生产日期和有效期可关联。',
+      content: 'PDA 已上传标签预读结果，Station 将复核供应商编码、批次、生产日期和有效期。',
       type: 'info',
-    },
-    {
-      time: '08:49',
-      content: '前保险杠外箱标签存在破损和覆膜遮挡，检测后需要 PDA 人工复核。',
-      type: 'warning',
     },
   ];
   const agentSummaries = isPurchaseGuide ? purchaseAgentSummaries : defaultAgentSummaries;
@@ -372,6 +419,18 @@ const StationIdle: FC = () => {
       );
     }
     if (player.phase === 'awaitingL2Action') {
+      if (isPurchaseGuide) {
+        return (
+          <button
+            onClick={() => navigate('/pda/problem/handover?scenario=purchase-receive')}
+            className="flex shrink-0 items-center gap-1.5 rounded-md bg-l2-badge px-3 py-2 text-xs font-medium text-white shadow-[0_0_0_4px_rgba(217,119,6,0.16)] transition-colors hover:bg-l2-badge/90"
+          >
+            <DemoStepBadge step={9} />
+            <Smartphone className="h-4 w-4" />
+            下发 PDA 处置
+          </button>
+        );
+      }
       return (
         <div className="flex shrink-0 items-center gap-1.5 rounded-md bg-l2-badge/15 px-3 py-2 text-xs font-medium text-l2-badge">
           <AlertTriangle className="h-4 w-4" />
@@ -385,6 +444,7 @@ const StationIdle: FC = () => {
           onClick={player.approvePass}
           className="flex shrink-0 items-center gap-1.5 rounded-md bg-success px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-success/90"
         >
+          <DemoStepBadge step={8} />
           <PackageCheck className="h-4 w-4" />
           确认通过
         </button>
@@ -418,6 +478,7 @@ const StationIdle: FC = () => {
         onClick={player.start}
         className="flex shrink-0 items-center gap-1.5 rounded-md bg-info px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-info/90"
       >
+        <DemoStepBadge step={7} />
         <PlayCircle className="h-4 w-4" />
         {hasDetectionResult ? '检测下一件' : '开始检测'}
       </button>
@@ -443,7 +504,7 @@ const StationIdle: FC = () => {
             </div>
             <p className="mt-2 text-xs font-semibold text-text-primary">执行自动检测</p>
             <p className="mt-1 text-[10px] leading-relaxed text-text-secondary">
-              按中间高亮按钮开始检测，系统会依次完成视觉点数、标签、OCR、重量估算和 NG 判定。
+              PDA 已完成现场采集；本站负责正式检测：视觉点数、标签 OCR、重量估算和 NG 判定。
             </p>
           </div>
         )}
@@ -553,11 +614,11 @@ const StationIdle: FC = () => {
             </div>
             <div className="flex justify-between">
               <span>托码 / 箱码</span>
-              <span className="font-data text-text-primary">1 托 + 6 箱</span>
+              <span className="font-data text-text-primary">1 托 + 14 标签</span>
             </div>
             <div className="flex justify-between">
               <span>箱规</span>
-              <span className="font-data text-text-primary">12 件/箱</span>
+              <span className="font-data text-text-primary">50 EA/箱</span>
             </div>
             <div className="flex justify-between">
               <span>标签异常</span>
@@ -576,7 +637,7 @@ const StationIdle: FC = () => {
           </div>
           <p className="mt-1 text-[10px] text-text-secondary">
             {isPurchaseGuide
-              ? `${purchaseReceiveGuide.damagedMaterialName} 按重力台读数估算为 1 件，后续由 PDA 复核标签问题。`
+              ? '重力台读数会随图像结果一并记录，异常件由收货员在 PDA 登记处置。'
               : '非整托物料按重力台读数估算数量，差异超过 3% 自动转人工复核。'}
           </p>
         </div>
@@ -746,21 +807,26 @@ const StationIdle: FC = () => {
         </motion.div>
 
         {isPurchaseGuide && player.phase !== 'detecting' && (
-          <div className="rounded-lg border border-info/30 bg-info/10 px-3 py-2">
+          <div className={cn(
+            'rounded-lg border px-3 py-2',
+            shouldSendToPdaReview ? 'border-l2-badge/50 bg-l2-badge/10' : 'border-info/30 bg-info/10',
+          )}>
             <div className="flex items-center justify-between gap-3">
               <p className="text-xs text-text-secondary">
                 {hasDetectionResult
                   ? currentOutcome === 'pass'
-                    ? '检测结果已通过。点击右侧确认通过，继续检测同批次下一件。'
-                    : '检测结果已生成。该件需要进入 PDA 人工复核。'
-                  : '按右侧高亮按钮开始检测。'}
+                    ? '检测通过。点击确认通过，继续检测下一件。'
+                    : 'Station 已判定标签异常。点击右侧按钮下发给 PDA 做现场处置登记。'
+                  : '点击右侧开始检测。'}
               </p>
               {shouldSendToPdaReview && (
                 <button
                   onClick={() => navigate('/pda/problem/handover?scenario=purchase-receive')}
-                  className="shrink-0 rounded bg-info px-3 py-1.5 text-xs font-semibold text-white"
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded bg-l2-badge px-3 py-1.5 text-xs font-semibold text-white shadow-[0_0_0_3px_rgba(217,119,6,0.16)]"
                 >
-                  转 PDA 复核处理
+                  <DemoStepBadge step={9} />
+                  <Smartphone className="h-3.5 w-3.5" />
+                  下发 PDA 处置
                 </button>
               )}
             </div>
@@ -882,7 +948,7 @@ const StationIdle: FC = () => {
       </div>
 
       {/* RIGHT COLUMN: static summary OR streaming agent */}
-      <div className="flex h-full w-[320px] flex-col border-l border-border bg-primary p-3">
+      <div className="flex h-full w-[340px] flex-col border-l border-border bg-primary p-2.5">
         <AnimatePresence mode="wait">
           {showStaticSummary ? (
             <motion.div
@@ -976,6 +1042,11 @@ const StationIdle: FC = () => {
                 onHoldL2Review={player.holdL2ForReview}
                 onConfirmL1Block={player.confirmL1Block}
                 onCreateWorkOrder={player.createWorkOrder}
+                onGoToPdaReview={
+                  isPurchaseGuide && currentOutcome === 'l2'
+                    ? () => navigate('/pda/problem/handover?scenario=purchase-receive')
+                    : undefined
+                }
               />
             </motion.div>
           )}

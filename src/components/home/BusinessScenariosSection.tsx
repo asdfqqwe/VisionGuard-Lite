@@ -26,6 +26,7 @@ interface BusinessScenario {
   badge: string;
   route: string;
   imageSrc: string;
+  fallbackImageSrc?: string;
   tone: 'blue' | 'gold';
   icon: ReactNode;
 }
@@ -56,11 +57,11 @@ const businessScenarios: BusinessScenario[] = [
   {
     no: '02',
     title: '生产退料入库',
-    value: '退料回仓后完成条码重绑与标签复检',
-    flow: ['扫描退料单', '条码重绑', '标签复检', '分类入库'],
-    terminals: ['PDA', 'Admin'],
-    badge: 'PDA',
-    route: '/pda/return/scan?scenario=production-return',
+    value: '车间退料回仓后完成审核、复检与分类入库',
+    flow: ['退料单审核', '现场验收', 'Station复检', '分类入库'],
+    terminals: ['Admin', 'PDA', 'Station'],
+    badge: 'Admin + PDA + Station',
+    route: '/admin/return-inbound?scenario=production-return',
     imageSrc: '/assets/placeholders/scenario-production-return.png',
     tone: 'blue',
     icon: <RefreshCcw className="h-4 w-4" />,
@@ -205,6 +206,7 @@ const ScenarioStage: FC<{ scenario: BusinessScenario; activeIndex: number }> = (
               title={item.title}
               label="场景图片预留"
               imageSrc={item.imageSrc}
+              fallbackImageSrc={item.fallbackImageSrc}
               icon={item.icon}
               className="absolute inset-0"
               mediaClassName="transition-transform duration-700 ease-out group-hover:scale-[1.02]"

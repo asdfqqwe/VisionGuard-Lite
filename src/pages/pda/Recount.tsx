@@ -1,245 +1,310 @@
 import type { FC } from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Camera, CheckCircle2, MonitorCheck, ScanLine, Smartphone, Tag } from 'lucide-react';
-import { inspectionTasks, recountTasks } from '@/data/mockData';
+import { Barcode, CheckCircle2, FileText, Minus, ScanLine, Tag } from 'lucide-react';
+import { DemoStepBadge } from '@/components/shared';
+import { recountTasks } from '@/data/mockData';
 import { cn } from '@/lib/utils';
 
-const recountData = [
-  { materialName: '矿泉水', systemQty: 12, actualQty: 10, unit: '箱' },
-  { materialName: '丁腈手套', systemQty: 40, actualQty: 40, unit: '盒' },
-  { materialName: '前轮轴承', systemQty: 20, actualQty: 20, unit: '件' },
-  { materialName: '5W-40机油', systemQty: 6, actualQty: 6, unit: '桶' },
+type FieldStepKey = 'location' | 'item' | 'label' | 'count';
+
+const fieldSteps: Array<{
+  key: FieldStepKey;
+  title: string;
+  value: string;
+  image: string;
+  fallback: string;
+  icon: typeof ScanLine;
+  box: { x: number; y: number; w: number; h: number; tone: 'success' | 'warning'; rotate?: number };
+  objectPosition?: string;
+  rows: Array<{ label: string; value: string; tone?: 'success' | 'warning' | 'danger' }>;
+  agentText: string;
+}> = [
+  {
+    key: 'location',
+    title: '扫库位码',
+    value: 'A-03-05',
+    image: '/images/recount-pda-location-scan.png',
+    fallback: '/assets/placeholders/scenario-recount.png',
+    icon: ScanLine,
+    box: { x: 59, y: 29, w: 29, h: 16, tone: 'success' },
+    objectPosition: 'center 18%',
+    rows: [
+      { label: '库位', value: 'A-03-05', tone: 'success' },
+      { label: '库区', value: 'A-03' },
+      { label: '状态', value: '已扫', tone: 'success' },
+    ],
+    agentText: '正在读取货架横梁右侧条码。识别到库位 A-03-05，所属库区 A-03，条码清晰，可进入货物码扫描。',
+  },
+  {
+    key: 'item',
+    title: '扫货物码',
+    value: 'WATER-550ML',
+    image: '/images/recount-pda-item-scan.png',
+    fallback: '/images/inspect-water-pass.jpg',
+    icon: Barcode,
+    box: { x: 33, y: 45, w: 41, h: 39, tone: 'success' },
+    objectPosition: 'center 45%',
+    rows: [
+      { label: 'SKU', value: 'WATER-550ML', tone: 'success' },
+      { label: '品名', value: '矿泉水' },
+      { label: '状态', value: '已匹配', tone: 'success' },
+    ],
+    agentText: '正在读取外箱货物码。识别到 SKU WATER-550ML，品名矿泉水，与当前库位盘点任务一致。',
+  },
+  {
+    key: 'label',
+    title: '标签巡检',
+    value: 'LOT B20260310A',
+    image: '/images/recount-pda-label-check.png',
+    fallback: '/images/inspect-shelf.jpg',
+    icon: Tag,
+    box: { x: 20, y: 34, w: 66, h: 55, tone: 'success' },
+    objectPosition: 'center 45%',
+    rows: [
+      { label: '批次', value: 'B20260310A', tone: 'success' },
+      { label: '日期', value: '2026-03-10' },
+      { label: '数量', value: '20 x 500ml' },
+    ],
+    agentText: '正在检查外箱标签。批次 B20260310A、生产日期 2026-03-10、箱规 20 x 500ml 均可读，标签无明显破损。',
+  },
+  {
+    key: 'count',
+    title: '录入现场数量',
+    value: '10 / 12 箱',
+    image: '/images/recount-pda-count-entry.png',
+    fallback: '/assets/placeholders/scenario-recount.png',
+    icon: Minus,
+    box: { x: 6, y: 5, w: 86, h: 74, tone: 'warning' },
+    objectPosition: 'center 58%',
+    rows: [
+      { label: '系统', value: '12 箱' },
+      { label: '现场', value: '10 箱', tone: 'warning' },
+      { label: '差异', value: '-2 箱', tone: 'danger' },
+    ],
+    agentText: '正在统计画面中的矿泉水箱数。现场可见 10 箱，系统库存 12 箱，少 2 箱，建议提交盘点差异。',
+  },
 ];
+
+const nextStepByKey: Record<FieldStepKey, FieldStepKey | 'result'> = {
+  location: 'item',
+  item: 'label',
+  label: 'count',
+  count: 'result',
+};
 
 const Recount: FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [locationScanned, setLocationScanned] = useState(true);
-  const [barcodeScanned, setBarcodeScanned] = useState(true);
-  const [labelStatus, setLabelStatus] = useState<'正常' | '缺失' | '破损'>('正常');
-  const [detectionMode, setDetectionMode] = useState<'pda' | 'station'>('pda');
+  const [, setLabelStatus] = useState<'正常' | '缺失' | '破损'>('正常');
+  const [activeStep, setActiveStep] = useState<FieldStepKey>('location');
+  const [scanStarted, setScanStarted] = useState(false);
+  const [scanComplete, setScanComplete] = useState(false);
+  const [typedAgentText, setTypedAgentText] = useState('');
   const state = location.state as { taskNo?: string; actualQuantity?: number } | null;
   const recountTask = recountTasks.find((task) => task.taskNo === state?.taskNo) || recountTasks[0];
-  const inspectionTask = inspectionTasks.find((task) => task.taskNo === state?.taskNo || task.location === recountTask.location);
-  const currentRows = inspectionTask
-    ? [{
-        materialName: inspectionTask.materialName,
-        systemQty: inspectionTask.systemQuantity,
-        actualQty: state?.actualQuantity ?? inspectionTask.actualQuantity ?? inspectionTask.systemQuantity,
-        unit: inspectionTask.unit,
-      }]
-    : recountData;
 
-  const hasDiff = currentRows.some(r => r.systemQty !== r.actualQty);
-  const readyToSubmit = locationScanned && barcodeScanned;
+  const activeFieldStep = fieldSteps.find((step) => step.key === activeStep) ?? fieldSteps[0];
+  const ActiveFieldIcon = activeFieldStep.icon;
+
+  useEffect(() => {
+    setScanStarted(false);
+    setScanComplete(false);
+    setTypedAgentText('');
+  }, [activeStep]);
+
+  useEffect(() => {
+    if (!scanStarted) return;
+
+    setScanComplete(false);
+    setTypedAgentText('');
+    let index = 0;
+    const timer = window.setInterval(() => {
+      index += 1;
+      setTypedAgentText(activeFieldStep.agentText.slice(0, index));
+      if (index >= activeFieldStep.agentText.length) {
+        window.clearInterval(timer);
+        setScanComplete(true);
+      }
+    }, 18);
+
+    return () => window.clearInterval(timer);
+  }, [activeFieldStep.agentText, scanStarted]);
+
+  const handleDemoNext = () => {
+    if (!scanStarted) {
+      setScanStarted(true);
+      return;
+    }
+    if (!scanComplete) return;
+
+    const next = nextStepByKey[activeStep];
+    if (next === 'result') {
+      navigate('/pda/recount/result?scenario=recount', { state: { taskNo: recountTask.taskNo } });
+      return;
+    }
+    setActiveStep(next);
+    if (next === 'label') setLabelStatus('正常');
+  };
 
   return (
-    <div className="h-full bg-primary px-4 pt-3 pb-4">
+    <div className="h-full overflow-hidden bg-primary px-4 pt-3 pb-3">
       {/* Info Card */}
       <div className="rounded-lg bg-white p-3">
         <div className="font-data text-sm font-semibold text-info">{recountTask.taskNo}</div>
         <div className="mt-1 text-sm text-text-primary">{recountTask.location} 区域盘点</div>
-        <div className="mt-1 text-xs text-text-muted">触发原因：{recountTask.triggerSource}{inspectionTask ? `（${inspectionTask.taskNo}）` : ''}</div>
+        <div className="mt-1 text-xs text-text-muted">触发原因：{recountTask.triggerSource}</div>
         <div className="mt-2">
-          <span className="rounded bg-warning/15 px-2 py-0.5 text-[11px] text-warning">进行中</span>
+          <span
+            className={cn(
+              'rounded px-2 py-0.5 text-[11px]',
+              activeStep === 'count' && scanComplete
+                ? 'bg-danger/10 text-danger'
+                : scanComplete
+                  ? 'bg-success/10 text-success'
+                  : 'bg-warning/15 text-warning',
+            )}
+          >
+            {activeStep === 'count' && scanComplete ? '差异待提交' : scanComplete ? '已识别' : '进行中'}
+          </span>
         </div>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        <button
-          onClick={() => setLocationScanned(true)}
-          className={cn(
-            'rounded-lg border bg-white p-3 text-left transition-all',
-            locationScanned && 'border-success bg-success/10',
-          )}
-        >
-          <div className="flex items-center gap-2">
-            <ScanLine className={cn('h-4 w-4', locationScanned ? 'text-success' : 'text-info')} />
-            <span className="text-xs font-semibold text-text-primary">扫库位码</span>
-          </div>
-          <div className="mt-1 font-data text-xs text-text-secondary">{recountTask.location}</div>
-          {locationScanned && <div className="mt-1 text-[11px] text-success">库位已确认</div>}
-        </button>
-        <button
-          onClick={() => setBarcodeScanned(true)}
-          className={cn(
-            'rounded-lg border bg-white p-3 text-left transition-all',
-            barcodeScanned && 'border-success bg-success/10',
-          )}
-        >
-          <div className="flex items-center gap-2">
-            <ScanLine className={cn('h-4 w-4', barcodeScanned ? 'text-success' : 'text-info')} />
-            <span className="text-xs font-semibold text-text-primary">扫货物码</span>
-          </div>
-          <div className="mt-1 font-data text-xs text-text-secondary">SKU-{recountTask.taskNo.replace('RC-', 'INV-')}</div>
-          {barcodeScanned && <div className="mt-1 text-[11px] text-success">物资匹配</div>}
-        </button>
-      </div>
-
-      <div className="mt-3 grid grid-cols-3 gap-2">
-        <button
-          onClick={() => navigate('/station/recount?scenario=recount')}
-          className="flex h-10 items-center justify-center rounded bg-info text-[11px] font-semibold text-white"
-        >
-          Station 复核
-        </button>
-        <button
-          onClick={() => navigate('/pda/recount/result', { state: { taskNo: recountTask.taskNo } })}
-          className="flex h-10 items-center justify-center rounded bg-warning text-[11px] font-semibold text-white"
-        >
-          处理差异
-        </button>
-        <button
-          onClick={() => navigate('/pda')}
-          className="flex h-10 items-center justify-center rounded bg-success text-[11px] font-semibold text-white"
-        >
-          确认无误
-        </button>
-      </div>
-
-      <div className="mt-3 rounded-lg border border-warning/30 bg-warning/10 p-3">
-        <p className="text-xs font-semibold text-text-primary">下一步操作</p>
-        <p className="mt-1 text-[11px] leading-relaxed text-text-secondary">
-          当前库位和货物条码已预填确认。可直接处理数量差异，或送 Station 做整箱视觉复核。
-        </p>
-      </div>
-
-      <div className="mt-3 rounded-lg bg-white p-3">
-        <div className="mb-2 flex items-center gap-2">
-          <Tag className="h-4 w-4 text-info" />
-          <h3 className="text-sm font-semibold text-text-primary">标签巡检</h3>
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          {(['正常', '缺失', '破损'] as const).map((status) => (
-            <button
-              key={status}
-              onClick={() => setLabelStatus(status)}
+      <div className="mt-2 overflow-hidden rounded-lg bg-white">
+        <div className="relative h-[258px] bg-[#0F172A]">
+          <img
+            key={activeFieldStep.image}
+            src={activeFieldStep.image}
+            alt={activeFieldStep.title}
+            onError={(event) => {
+              const img = event.currentTarget;
+              if (img.src.endsWith(activeFieldStep.fallback)) return;
+              img.src = activeFieldStep.fallback;
+            }}
+            className="h-full w-full object-cover"
+            style={{ objectPosition: activeFieldStep.objectPosition ?? 'center' }}
+          />
+          {scanStarted && (
+            <div
               className={cn(
-                'rounded border px-2 py-2 text-xs font-semibold',
-                labelStatus === status
-                  ? status === '正常'
-                    ? 'border-success bg-success/10 text-success'
-                    : 'border-warning bg-warning/10 text-warning'
-                  : 'border-border bg-primary text-text-secondary',
+                'absolute rounded-md border-2 shadow-[0_0_0_3px_rgba(15,23,42,0.2)]',
+                activeFieldStep.box.tone === 'success' ? 'border-success' : 'border-warning',
               )}
+              style={{
+                left: `${activeFieldStep.box.x}%`,
+                top: `${activeFieldStep.box.y}%`,
+                width: `${activeFieldStep.box.w}%`,
+                height: `${activeFieldStep.box.h}%`,
+                transform: activeFieldStep.box.rotate ? `rotate(${activeFieldStep.box.rotate}deg)` : undefined,
+                transformOrigin: 'center',
+              }}
             >
-              {status}
-            </button>
-          ))}
+              <div
+                className={cn(
+                  'absolute -top-6 left-0 flex items-center gap-1 rounded px-2 py-1 text-[10px] font-semibold text-white',
+                  activeFieldStep.box.tone === 'success' ? 'bg-success' : 'bg-warning',
+                )}
+              >
+                <ActiveFieldIcon className="h-3 w-3" />
+                {activeFieldStep.title}
+              </div>
+            </div>
+          )}
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-white">{activeFieldStep.title}</span>
+              <span className="rounded bg-white/15 px-2 py-1 font-data text-[11px] text-white">
+                {scanComplete ? activeFieldStep.value : '等待扫描'}
+              </span>
+            </div>
+          </div>
         </div>
-        <p className="mt-2 text-[11px] leading-relaxed text-text-muted">
-          检查标签是否缺失、破损、遮挡、倒置或错贴；异常可在结果页补打整改。
-        </p>
-      </div>
 
-      <div className="mt-3 rounded-lg bg-white p-3">
-        <div className="mb-2 flex items-center gap-2">
-          <Camera className="h-4 w-4 text-info" />
-          <h3 className="text-sm font-semibold text-text-primary">检测方式</h3>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          {[
-            { key: 'pda', label: 'PDA 就地检测', icon: Smartphone, text: '拍照 + 人工修正' },
-            { key: 'station', label: '送 Station', icon: MonitorCheck, text: '整箱 / 大件视觉计数' },
-          ].map((item) => {
-            const Icon = item.icon;
-            const active = detectionMode === item.key;
+        <div className="grid grid-cols-4 gap-1.5 p-1.5">
+          {fieldSteps.map((step, index) => {
+            const StepIcon = step.icon;
+            const active = step.key === activeStep;
             return (
               <button
-                key={item.key}
-                onClick={() => setDetectionMode(item.key as 'pda' | 'station')}
+                key={step.key}
+                onClick={() => setActiveStep(step.key)}
                 className={cn(
-                  'rounded-lg border px-3 py-2 text-left transition-all',
+                  'rounded-md border px-1.5 py-1.5 text-center transition-all',
                   active ? 'border-info bg-info/10 text-info' : 'border-border bg-primary text-text-secondary',
                 )}
               >
-                <Icon className="h-4 w-4" />
-                <div className="mt-1 text-xs font-semibold">{item.label}</div>
-                <div className="mt-0.5 text-[10px] text-text-muted">{item.text}</div>
+                <StepIcon className="mx-auto h-4 w-4" />
+                <div className="mt-0.5 text-[10px] font-semibold">{index + 1}</div>
               </button>
             );
           })}
         </div>
       </div>
 
-      {/* 3-Column Comparison Table */}
-      <div className="mt-4">
-        <h3 className="mb-2 text-sm font-semibold text-text-primary">数量对比</h3>
-        <div className="overflow-hidden rounded-lg border border-border">
-          {/* Header */}
-          <div className="grid grid-cols-3 bg-primary">
-            <div className="px-2 py-2 text-center text-[11px] text-text-muted">系统数量</div>
-            <div className="px-2 py-2 text-center text-[11px] text-text-muted">现场数量</div>
-            <div className="px-2 py-2 text-center text-[11px] text-text-muted">差异值</div>
-          </div>
-          {/* Rows */}
-          {currentRows.map((row, idx) => {
-            const diff = row.actualQty - row.systemQty;
-            return (
-              <div key={idx} className={cn('grid grid-cols-3 border-t border-border',
-                idx % 2 === 0 ? 'bg-white' : 'bg-transparent'
-              )}>
-                <div className="px-2 py-2.5 text-center font-data text-sm text-text-primary">{row.systemQty}</div>
-                <div className="px-2 py-2.5 text-center font-data text-sm text-text-primary">{row.actualQty}</div>
-                <div className={cn('px-2 py-2.5 text-center font-data text-sm font-semibold',
-                  diff > 0 ? 'text-warning' : diff < 0 ? 'text-danger' : 'text-success'
-                )}>
-                  {diff > 0 ? '+' : ''}{diff}
-                </div>
-              </div>
-            );
-          })}
+      <div className="mt-2 rounded-lg bg-white p-2.5">
+        <div className="mb-2 flex items-center gap-2">
+          <CheckCircle2 className={cn('h-4 w-4', scanComplete ? 'text-success' : 'text-text-muted')} />
+          <span className="text-xs font-semibold text-text-primary">Agent 识别</span>
+          <span
+            className={cn(
+              'ml-auto rounded px-2 py-0.5 text-[10px]',
+              scanComplete ? 'bg-success/10 text-success' : 'bg-info/10 text-info',
+            )}
+          >
+            {scanStarted ? (scanComplete ? '待人工核对' : '识别中') : '未开始'}
+          </span>
         </div>
-      </div>
-
-      {/* Diff Warning */}
-      {hasDiff && (
-        <div className="mt-4 rounded-lg border border-warning/30 bg-warning/10 p-3">
-          <div className="text-xs font-semibold text-warning">差异警告</div>
-          <div className="mt-1 text-xs text-text-secondary">发现数量差异，建议转问题件并查监控</div>
-        </div>
-      )}
-
-      {/* Agent Suggestion */}
-      <div className="mt-4 rounded-md border-l-[3px] border-l-info bg-white p-3">
-        <span className="text-xs font-semibold text-info">Agent建议：</span>
-        <p className="mt-1 text-xs leading-relaxed text-text-secondary">
-          {detectionMode === 'station'
-            ? '整箱或大件建议送 Station 做视觉计数与 OCR 复核；结果会带回盘点报告。'
-            : '就地巡检建议保留库位码、货物码、标签状态和现场照片，差异项转人工复核。'}
+        <p className="min-h-[34px] text-[11px] leading-relaxed text-text-secondary">
+          {scanStarted
+            ? typedAgentText
+            : '点击开始扫描后，PDA 会读取画面中的条码、标签或箱数，并把结果带到下方供人工核对。'}
+          {scanStarted && !scanComplete && <span className="ml-0.5 animate-pulse text-info">|</span>}
         </p>
-      </div>
-
-      <div className="mt-3 flex items-center gap-2 rounded-lg bg-white p-3">
-        <CheckCircle2 className={cn('h-4 w-4', readyToSubmit ? 'text-success' : 'text-text-muted')} />
-        <div>
-          <div className="text-xs font-semibold text-text-primary">
-            {readyToSubmit ? '库位与货物已核对' : '请先完成库位和货物条码核对'}
+        {scanComplete && (
+          <div className="mt-2 grid grid-cols-3 gap-1.5">
+            {activeFieldStep.rows.map((row) => (
+              <label key={row.label} className="rounded bg-primary px-2 py-1.5">
+                <span className="block text-[10px] text-text-muted">{row.label}</span>
+                <input
+                  defaultValue={row.value}
+                  className={cn(
+                    'mt-0.5 w-full truncate bg-transparent font-data text-[11px] font-semibold outline-none',
+                    row.tone === 'danger'
+                      ? 'text-danger'
+                      : row.tone === 'warning'
+                        ? 'text-warning'
+                        : row.tone === 'success'
+                          ? 'text-success'
+                          : 'text-text-primary',
+                  )}
+                />
+              </label>
+            ))}
           </div>
-          <div className="mt-0.5 text-[10px] text-text-muted">标签：{labelStatus} · 检测：{detectionMode === 'station' ? 'Station' : 'PDA'}</div>
-        </div>
+        )}
       </div>
 
-      {/* Bottom Actions */}
-      <div className="mt-6 flex gap-3">
+      <div className="mt-2 rounded-lg border border-warning/30 bg-warning/10 p-2.5">
+        <p className="text-xs font-semibold text-text-primary">下一步操作</p>
+        <p className="mt-0.5 text-[11px] leading-relaxed text-text-secondary">
+          {!scanStarted && '请先点击开始扫描，PDA 会自动读取当前画面。'}
+          {scanStarted && !scanComplete && 'Agent 正在识别画面，请稍等片刻。'}
+          {scanComplete && activeStep === 'location' && '库位 A-03-05 已识别，可继续扫描货物条码。'}
+          {scanComplete && activeStep === 'item' && '货物码 WATER-550ML 已匹配，可继续检查外箱标签字段。'}
+          {scanComplete && activeStep === 'label' && '标签字段完整，可继续录入现场点数并确认差异。'}
+          {scanComplete && activeStep === 'count' && '现场点数 10 箱，系统库存 12 箱，可提交本次 PDA 盘点结果。'}
+        </p>
         <button
-          onClick={() => navigate('/pda/recount/result', { state: { taskNo: recountTask.taskNo } })}
+          onClick={handleDemoNext}
+          disabled={scanStarted && !scanComplete}
           className={cn(
-            'flex h-11 flex-1 items-center justify-center rounded text-sm font-semibold text-white',
-            'bg-warning',
+            'mt-1.5 flex h-10 w-full items-center justify-center gap-2 rounded text-xs font-semibold text-white',
+            scanStarted && !scanComplete ? 'bg-warning/50' : 'bg-warning',
           )}
         >
-          处理差异
-        </button>
-        <button
-          onClick={() => navigate('/pda')}
-          className={cn(
-            'flex h-11 flex-1 items-center justify-center rounded text-sm font-semibold text-white',
-            labelStatus === '正常' ? 'bg-success' : 'bg-success/40',
-          )}
-        >
-          确认无误
+          <DemoStepBadge step={2} />
+          <FileText className="h-4 w-4" />
+          {!scanStarted ? '开始扫描' : scanComplete ? (activeStep === 'count' ? '提交盘点结果' : '继续下一项') : '识别中'}
         </button>
       </div>
     </div>

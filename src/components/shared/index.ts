@@ -2,6 +2,7 @@ export { StatusBadge } from './StatusBadge';
 export type { BadgeStatus } from './StatusBadge';
 export { L1Badge } from './L1Badge';
 export { L2Badge } from './L2Badge';
+export { DemoStepBadge } from './DemoStepBadge';
 export { AgentSuggestion } from './AgentSuggestion';
 export { ResultCard } from './ResultCard';
 export type { ResultCardType } from './ResultCard';

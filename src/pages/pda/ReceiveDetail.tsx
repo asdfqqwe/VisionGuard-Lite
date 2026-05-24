@@ -1,11 +1,13 @@
 import type { FC } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSearchParams } from 'react-router-dom';
-import { CheckCircle, AlertTriangle, XCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { CheckCircle, AlertTriangle, XCircle, ChevronDown, ChevronUp, Loader2, MonitorCheck, PencilLine } from 'lucide-react';
 import { useState } from 'react';
 import { deliveryOrderPO007 } from '@/data/mockData';
 import type { DeliveryItem } from '@/data/mockData';
 import { cn } from '@/lib/utils';
+import { DemoStepBadge } from '@/components/shared';
 import { purchaseReceiveGuide } from '@/data/purchaseReceiveGuide';
 
 const ReceiveDetail: FC = () => {
@@ -17,7 +19,8 @@ const ReceiveDetail: FC = () => {
   const scannedCode = navState?.scannedCode || purchaseReceiveGuide.scannedCode;
   const orderNo = navState?.orderNo || purchaseReceiveGuide.purchaseOrderNo;
   const [expanded, setExpanded] = useState(false);
-  const [fieldReviewed, setFieldReviewed] = useState(isPurchaseGuide);
+  const [fieldReviewed, setFieldReviewed] = useState(!isPurchaseGuide);
+  const [typedFieldChars, setTypedFieldChars] = useState(isPurchaseGuide ? 0 : Number.MAX_SAFE_INTEGER);
 
   const order = deliveryOrderPO007;
   const anomalousItems = order.items.filter(i => i.status !== '通过');
@@ -28,22 +31,21 @@ const ReceiveDetail: FC = () => {
       materialName: purchaseReceiveGuide.scanMaterialName,
       quantity: '50',
       unit: 'EA',
-      status: '通过',
+      status: '已读取',
     },
     {
       id: 'guide-ocr',
       materialName: purchaseReceiveGuide.ocrMaterialName,
       quantity: purchaseReceiveGuide.quantity,
       unit: '件',
-      status: '通过',
+      status: '已读取',
     },
     {
-      id: 'guide-damaged',
-      materialName: purchaseReceiveGuide.damagedMaterialName,
-      quantity: purchaseReceiveGuide.damagedQty,
-      unit: '件',
-      status: '待复核',
-      detectLevel: 'L2',
+      id: 'guide-station',
+      materialName: 'Station 固定相机检测',
+      quantity: '待执行',
+      unit: '',
+      status: '待检测',
     },
   ];
   const displayItems = isPurchaseGuide ? purchaseGuideItems : order.items;
@@ -80,24 +82,73 @@ const ReceiveDetail: FC = () => {
     return '发现1件标签轻微磨损，建议人工复核后确认是否接收。';
   };
 
-  const resultCardType = isPurchaseGuide ? 'warning' : getResultCardType(firstAnomaly);
-  const badge = isPurchaseGuide ? '待检测' : getBadge(firstAnomaly);
-  const icon = isPurchaseGuide ? <AlertTriangle className="h-6 w-6 text-warning" /> : getIcon(firstAnomaly);
-  const title = isPurchaseGuide ? '字段已确认' : getTitle(firstAnomaly);
+  const ocrRows = useMemo(() => [
+    { label: '托码', value: purchaseReceiveGuide.palletCode, source: '扫码照片' },
+    { label: '箱码', value: purchaseReceiveGuide.cartonCode, source: '扫码照片' },
+    { label: '扫码料号', value: purchaseReceiveGuide.scanPartNo, source: '扫码照片' },
+    { label: '扫码数量', value: purchaseReceiveGuide.scanQty, source: '扫码照片' },
+    { label: '供应商编码', value: purchaseReceiveGuide.supplierCode, source: 'PDA 预读' },
+    { label: '配件料号', value: purchaseReceiveGuide.ocrPartNo, source: 'PDA 预读' },
+    { label: '批次号', value: purchaseReceiveGuide.batchNo, source: 'PDA 预读' },
+    { label: '有效期', value: purchaseReceiveGuide.expirationDate, source: 'PDA 预读' },
+  ], []);
+  const fieldOffsets = useMemo(() => {
+    let cursor = 0;
+    return ocrRows.map((row) => {
+      const start = cursor;
+      cursor += row.value.length + 1;
+      return { start, end: start + row.value.length };
+    });
+  }, [ocrRows]);
+  const fieldCharTotal = useMemo(
+    () => ocrRows.reduce((total, row) => total + row.value.length + 1, 0),
+    [ocrRows],
+  );
+  const completedFieldCount = fieldOffsets.filter((offset) => typedFieldChars >= offset.end).length;
+  const fieldsDone = !isPurchaseGuide || typedFieldChars >= fieldCharTotal;
+  const resultCardType = isPurchaseGuide ? (fieldReviewed ? 'pass' : 'warning') : getResultCardType(firstAnomaly);
+  const badge = isPurchaseGuide ? (fieldReviewed ? '已采集' : fieldsDone ? '待确认' : '预读中') : getBadge(firstAnomaly);
+  const icon = isPurchaseGuide
+    ? fieldReviewed
+      ? <CheckCircle className="h-6 w-6 text-success" />
+      : <Loader2 className="h-6 w-6 animate-spin text-info" />
+    : getIcon(firstAnomaly);
+  const title = isPurchaseGuide ? (fieldReviewed ? '采集已确认' : fieldsDone ? '采集待确认' : '字段预读中') : getTitle(firstAnomaly);
   const suggestion = isPurchaseGuide
-    ? 'PDA 已采集托码和箱码。OCR 抽检标签字段与采购单可关联，但另有一件前保险杠标签破损并被覆膜遮挡，建议送 Station 做整托点数与标签合规检测。'
+    ? fieldReviewed
+      ? 'PDA 已完成现场采集。当前批次包含整托、散件和标签风险，Agent 建议送 Station 做正式检测。'
+      : fieldsDone
+        ? 'PDA 预读已完成。这里只确认现场采集结果，当前批次仍按 Agent 建议送 Station 正式检测。'
+        : 'PDA 正在预读托码、箱码和标签字段。这里只做采集确认，不代替 Station 正式检测。'
     : getSuggestion(firstAnomaly);
+
+  useEffect(() => {
+    if (!isPurchaseGuide) return undefined;
+
+    setTypedFieldChars(0);
+    const timer = window.setInterval(() => {
+      setTypedFieldChars((count) => {
+        const next = Math.min(fieldCharTotal, count + 1);
+        if (next >= fieldCharTotal) {
+          window.clearInterval(timer);
+        }
+        return next;
+      });
+    }, 28);
+
+    return () => window.clearInterval(timer);
+  }, [fieldCharTotal, isPurchaseGuide]);
 
   return (
     <div className="flex h-full flex-col bg-primary px-4 py-3">
       {isPurchaseGuide && (
         <div className="mb-3 rounded-lg border-2 border-info bg-info/10 p-3 shadow-[0_0_0_3px_rgba(59,130,246,0.08)]">
           <div className="inline-flex rounded-full bg-info px-2 py-0.5 text-[10px] font-bold text-white">
-            OCR 字段已读取
+            {fieldsDone ? 'PDA 采集已完成' : 'PDA 字段预读中'}
           </div>
-          <h2 className="mt-2 text-sm font-semibold text-text-primary">核对标签字段和到货信息</h2>
+          <h2 className="mt-2 text-sm font-semibold text-text-primary">现场采集和预读信息</h2>
           <p className="mt-1 text-[11px] leading-relaxed text-text-secondary">
-            托码、箱码来自扫码照片；供应商编码、批次、料号、日期和有效期来自 OCR 抽检照片。
+            PDA 负责现场扫码、拍照和字段预读。低风险任务可在 PDA 完成，当前批次按 Agent 建议送 Station。
           </p>
         </div>
       )}
@@ -126,7 +177,7 @@ const ReceiveDetail: FC = () => {
 
         {isPurchaseGuide && (
           <div className="mt-3 rounded-lg bg-white p-3">
-            <h3 className="text-sm font-semibold text-text-primary">已识别标签照片</h3>
+            <h3 className="text-sm font-semibold text-text-primary">现场采集照片</h3>
             <div className="mt-2 grid grid-cols-2 gap-2">
               <div className="h-24 overflow-hidden rounded-md border border-border bg-slate-100">
                 <img
@@ -146,10 +197,10 @@ const ReceiveDetail: FC = () => {
               </div>
             </div>
             <div className="mt-2 grid grid-cols-2 gap-2 text-[10px]">
-              <span className="truncate rounded bg-primary px-2 py-1 text-text-secondary">托码 {purchaseReceiveGuide.palletCode}</span>
-              <span className="truncate rounded bg-primary px-2 py-1 text-text-secondary">箱码 {purchaseReceiveGuide.cartonCode}</span>
-              <span className="truncate rounded bg-primary px-2 py-1 text-text-secondary">料号 {purchaseReceiveGuide.ocrPartNo}</span>
-              <span className="truncate rounded bg-primary px-2 py-1 text-text-secondary">批次 {purchaseReceiveGuide.batchNo}</span>
+              <span className="truncate rounded bg-primary px-2 py-1 text-text-secondary">托码 {completedFieldCount >= 1 ? purchaseReceiveGuide.palletCode : '读取中'}</span>
+              <span className="truncate rounded bg-primary px-2 py-1 text-text-secondary">箱码 {completedFieldCount >= 2 ? purchaseReceiveGuide.cartonCode : '读取中'}</span>
+              <span className="truncate rounded bg-primary px-2 py-1 text-text-secondary">料号 {completedFieldCount >= 6 ? purchaseReceiveGuide.ocrPartNo : '读取中'}</span>
+              <span className="truncate rounded bg-primary px-2 py-1 text-text-secondary">批次 {completedFieldCount >= 7 ? purchaseReceiveGuide.batchNo : '读取中'}</span>
             </div>
           </div>
         )}
@@ -162,13 +213,13 @@ const ReceiveDetail: FC = () => {
               { label: '扫码结果', value: isPurchaseGuide ? scannedCode : orderNo },
               { label: '采集类型', value: isPurchaseGuide ? purchaseReceiveGuide.scannedCodeLabel : '运单号' },
               { label: '供应商', value: isPurchaseGuide ? purchaseReceiveGuide.supplier : order.supplier },
-              { label: '到货批次', value: isPurchaseGuide ? purchaseReceiveGuide.batchNo : firstAnomaly?.batchNo || 'L20260315A' },
+              { label: '到货批次', value: isPurchaseGuide ? (completedFieldCount >= 7 ? purchaseReceiveGuide.batchNo : '待读取') : firstAnomaly?.batchNo || 'L20260315A' },
               { label: '采购单', value: isPurchaseGuide ? purchaseReceiveGuide.purchaseOrderNo : order.purchaseOrderNo },
-              { label: '箱码', value: isPurchaseGuide ? purchaseReceiveGuide.cartonCode : 'CTN-007-001~006' },
-              { label: '检测工位', value: `${purchaseReceiveGuide.stationCode} 固定相机` },
-              { label: '包装', value: purchaseReceiveGuide.packagingMethod },
-              { label: '扫码照片物料', value: purchaseReceiveGuide.scanMaterialName },
-              { label: '扫码照片数量', value: purchaseReceiveGuide.scanQty },
+              { label: '箱码', value: isPurchaseGuide ? (completedFieldCount >= 2 ? purchaseReceiveGuide.cartonCode : '待读取') : 'CTN-007-001~006' },
+              { label: 'Agent 建议', value: fieldsDone ? `送 ${purchaseReceiveGuide.stationCode} 正式检测` : '待读取' },
+              { label: '包装', value: fieldsDone ? purchaseReceiveGuide.packagingMethod : '待读取' },
+              { label: '扫码照片物料', value: completedFieldCount >= 3 ? purchaseReceiveGuide.scanMaterialName : '待读取' },
+              { label: '扫码照片数量', value: completedFieldCount >= 4 ? purchaseReceiveGuide.scanQty : '待读取' },
             ].map((row) => (
               <div key={row.label} className="flex items-center justify-between rounded bg-white px-3 py-2">
                 <span className="text-[11px] text-text-muted">{row.label}</span>
@@ -180,8 +231,8 @@ const ReceiveDetail: FC = () => {
 
         <div className="mt-3 rounded-lg bg-white p-3">
           <div className="mb-2 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-text-primary">条码与 OCR 抽检</h3>
-            <span className="rounded bg-info/10 px-2 py-0.5 text-[10px] text-info">可人工修正</span>
+            <h3 className="text-sm font-semibold text-text-primary">条码与字段预读</h3>
+            <span className="rounded bg-info/10 px-2 py-0.5 text-[10px] text-info">采集确认</span>
           </div>
           {isPurchaseGuide && (
             <div className="mb-3 overflow-hidden rounded-md border border-border bg-slate-100">
@@ -206,33 +257,45 @@ const ReceiveDetail: FC = () => {
             </div>
           )}
           <div className="grid grid-cols-2 gap-2">
-            {[
-              { label: '托码', value: purchaseReceiveGuide.palletCode, source: '扫码照片' },
-              { label: '箱码', value: purchaseReceiveGuide.cartonCode, source: '扫码照片' },
-              { label: '扫码料号', value: purchaseReceiveGuide.scanPartNo, source: '扫码照片' },
-              { label: '扫码数量', value: purchaseReceiveGuide.scanQty, source: '扫码照片' },
-              { label: '供应商编码', value: purchaseReceiveGuide.supplierCode, source: 'OCR 抽检' },
-              { label: '配件料号', value: purchaseReceiveGuide.ocrPartNo, source: 'OCR 抽检' },
-              { label: '批次号', value: purchaseReceiveGuide.batchNo, source: 'OCR 抽检' },
-              { label: '有效期', value: purchaseReceiveGuide.expirationDate, source: 'OCR 抽检' },
-            ].map((row) => (
-              <div key={row.label} className="rounded bg-primary px-2 py-1.5">
+            {ocrRows.map((row, index) => {
+              const offset = fieldOffsets[index];
+              const chars = isPurchaseGuide
+                ? Math.max(0, Math.min(row.value.length, typedFieldChars - offset.start))
+                : row.value.length;
+              const visible = chars > 0;
+              const done = chars >= row.value.length;
+              return (
+              <div key={row.label} className={cn('rounded px-2 py-1.5', visible ? 'bg-primary' : 'bg-slate-100')}>
                 <p className="flex items-center justify-between gap-1 text-[10px] text-text-muted">
                   <span>{row.label}</span>
-                  <span className="text-[9px] text-info">{row.source}</span>
+                  <span className={cn('text-[9px]', visible ? 'text-info' : 'text-text-muted')}>{row.source}</span>
                 </p>
-                <p className="mt-0.5 truncate font-data text-[11px] text-text-primary">{row.value}</p>
+                <p className={cn('mt-0.5 truncate font-data text-[11px]', visible ? 'text-text-primary' : 'text-text-muted')}>
+                  {visible ? row.value.slice(0, chars) : '识别中…'}
+                  {isPurchaseGuide && visible && !done && (
+                    <span className="ml-0.5 inline-block animate-pulse text-info">▍</span>
+                  )}
+                </p>
               </div>
-            ))}
+            );
+            })}
           </div>
+          {!fieldsDone && (
+            <div className="mt-3 flex items-center gap-2 rounded bg-info/10 px-3 py-2 text-[11px] text-info">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              正在预读标签字段
+            </div>
+          )}
           <button
-            onClick={() => setFieldReviewed(true)}
+            onClick={() => fieldsDone && setFieldReviewed(true)}
+            disabled={!fieldsDone}
             className={cn(
-              'mt-3 h-9 w-full rounded text-xs font-semibold',
-              fieldReviewed ? 'bg-success/15 text-success' : 'bg-info text-white',
+              'mt-3 flex h-9 w-full items-center justify-center gap-1.5 rounded text-xs font-semibold',
+              !fieldsDone ? 'cursor-not-allowed bg-text-muted/20 text-text-muted' : fieldReviewed ? 'bg-success/15 text-success' : 'bg-info text-white',
             )}
           >
-            {fieldReviewed ? '字段已人工确认' : '人工确认字段'}
+            {fieldReviewed ? <CheckCircle className="h-3.5 w-3.5" /> : <PencilLine className="h-3.5 w-3.5" />}
+            {fieldReviewed ? '采集结果已确认' : '确认采集结果'}
           </button>
         </div>
 
@@ -250,9 +313,11 @@ const ReceiveDetail: FC = () => {
               </div>
               <div className="flex items-center gap-2">
                 <span className="font-data text-xs text-text-primary">{item.quantity}{item.unit}</span>
-                <div className={cn('h-2 w-2 rounded-full',
-                  item.status === '通过' ? 'bg-success' : item.detectLevel === 'L1' ? 'bg-danger' : 'bg-warning'
-                )} />
+                {isPurchaseGuide ? (
+                  <div className={cn('h-2 w-2 rounded-full', item.status === '待检测' ? 'bg-warning' : 'bg-success')} />
+                ) : (
+                  <div className={cn('h-2 w-2 rounded-full', item.status === '通过' ? 'bg-success' : 'detectLevel' in item && item.detectLevel === 'L1' ? 'bg-danger' : 'bg-warning')} />
+                )}
               </div>
             </div>
           ))}
@@ -282,12 +347,43 @@ const ReceiveDetail: FC = () => {
             </button>
           )}
           <button
-            onClick={() => navigate(isPurchaseGuide ? '/station?scenario=purchase-receive' : resultCardType === 'danger' ? '/pda/problem/handover' : '/pda/receive/summary')}
-            className={cn('flex h-11 flex-1 items-center justify-center rounded text-sm font-semibold text-white',
-              resultCardType === 'pass' ? 'bg-accent-gradient' : resultCardType === 'danger' ? 'bg-danger-gradient' : 'bg-accent-gradient'
+            disabled={isPurchaseGuide && !fieldsDone && !fieldReviewed}
+            onClick={() => {
+              if (isPurchaseGuide && !fieldReviewed) {
+                if (fieldsDone) setFieldReviewed(true);
+                return;
+              }
+              navigate(isPurchaseGuide ? '/station?scenario=purchase-receive' : resultCardType === 'danger' ? '/pda/problem/handover' : '/pda/receive/summary');
+            }}
+            className={cn('flex h-11 flex-1 items-center justify-center gap-2 rounded text-sm font-semibold text-white',
+              isPurchaseGuide && 'w-full',
+              isPurchaseGuide && !fieldsDone && !fieldReviewed
+                ? 'cursor-not-allowed bg-text-muted/40'
+                : resultCardType === 'pass'
+                  ? 'bg-accent-gradient'
+                  : resultCardType === 'danger'
+                    ? 'bg-danger-gradient'
+                    : 'bg-accent-gradient'
             )}
           >
-            {isPurchaseGuide ? '送到 Station 检测' : resultCardType === 'pass' ? '确认签收' : resultCardType === 'danger' ? '隔离处理' : '整改后入库'}
+            {isPurchaseGuide
+              ? fieldReviewed
+                ? (
+                    <>
+                      <DemoStepBadge step={6} />
+                      <MonitorCheck className="h-4 w-4" />
+                    </>
+                  )
+                : fieldsDone
+                  ? (
+                      <>
+                        <DemoStepBadge step={5} />
+                        <PencilLine className="h-4 w-4" />
+                      </>
+                    )
+                  : <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              : null}
+            {isPurchaseGuide ? (fieldReviewed ? '按建议送 Station' : fieldsDone ? '确认采集结果' : '正在预读字段') : resultCardType === 'pass' ? '确认签收' : resultCardType === 'danger' ? '隔离处理' : '整改后入库'}
           </button>
         </div>
       </div>

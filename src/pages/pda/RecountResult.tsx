@@ -1,97 +1,91 @@
 import type { FC } from 'react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, Camera, CheckCircle2, FileText, ScanLine, ScanText, Tag } from 'lucide-react';
+import { AlertTriangle, Camera, FileText, ScanLine, ScanText, Tag } from 'lucide-react';
+import { DemoStepBadge } from '@/components/shared';
 import { cn } from '@/lib/utils';
-
-const recountData = [
-  { materialName: '矿泉水', systemQty: 12, actualQty: 10, unit: '箱', issue: '漏盘' },
-  { materialName: '丁腈手套', systemQty: 40, actualQty: 40, unit: '盒', issue: '一致' },
-];
 
 const ocrFields = [
   { label: '批次', value: 'B20260310A', status: '匹配' },
-  { label: '料号', value: 'CHERY-GLOVE-L', status: '匹配' },
-  { label: '数量', value: '40 盒', status: '匹配' },
-  { label: '标签', value: '1 处缺失', status: '待整改' },
+  { label: '料号', value: 'WATER-550ML', status: '匹配' },
+  { label: '数量', value: '10 / 12 箱', status: '差异' },
+  { label: '标签', value: '10 张已读', status: '匹配' },
 ];
 
 const issueTypes = ['混批', '错放', '漏盘', '多盘'];
+const evidencePhotos = [
+  { label: '库位码', value: 'A-03-05', image: '/images/recount-pda-location-scan.png', icon: ScanLine },
+  { label: '货物码', value: 'WATER-550ML', image: '/images/recount-pda-item-scan.png', icon: ScanLine },
+  { label: '标签状态', value: '完整', image: '/images/recount-pda-label-check.png', icon: Tag },
+  { label: '现场点数', value: '10 箱', image: '/images/recount-pda-count-entry.png', icon: Camera },
+];
 
 const RecountResult: FC = () => {
   const navigate = useNavigate();
-  const [mode, setMode] = useState<'consistent' | 'diff' | null>(null);
   const [selectedIssue, setSelectedIssue] = useState('漏盘');
-  const [reportWritten, setReportWritten] = useState(false);
 
   return (
     <div className="h-full bg-primary px-4 pt-3 pb-4">
-      {/* Summary Card */}
       <div className="rounded-lg bg-white p-3">
         <div className="font-data text-sm font-semibold text-info">RC-001 盘点结果</div>
         <div className="mt-2 flex justify-around">
           <div className="text-center">
-            <div className="font-data text-lg font-bold text-text-primary">2</div>
-            <div className="text-[10px] text-text-muted">盘点项</div>
+            <div className="font-data text-lg font-bold text-text-primary">12</div>
+            <div className="text-[10px] text-text-muted">系统箱数</div>
           </div>
           <div className="text-center">
-            <div className="font-data text-lg font-bold text-success">1</div>
-            <div className="text-[10px] text-text-muted">一致</div>
+            <div className="font-data text-lg font-bold text-warning">10</div>
+            <div className="text-[10px] text-text-muted">现场箱数</div>
           </div>
           <div className="text-center">
-            <div className="font-data text-lg font-bold text-danger">1</div>
+            <div className="font-data text-lg font-bold text-danger">-2</div>
             <div className="text-[10px] text-text-muted">差异</div>
           </div>
         </div>
       </div>
 
-      {/* Details */}
-      <div className="mt-4 space-y-2">
-        {recountData.map((item, idx) => {
-          const diff = item.actualQty - item.systemQty;
-          return (
-            <div key={idx} className={cn('rounded-lg border p-3',
-              diff === 0 ? 'border-success/30 bg-success/10' : 'border-danger/30 bg-danger/10'
-            )}>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-text-primary">{item.materialName}</span>
-                <span className={cn('rounded px-2 py-0.5 text-[11px] font-bold',
-                  diff === 0 ? 'bg-success text-white' : 'bg-danger text-white'
-                )}>
-                  {diff === 0 ? '一致' : '差异'}
-                </span>
-              </div>
-              <div className="mt-1 grid grid-cols-3 gap-2">
-                <div className="text-center">
-                  <div className="text-[11px] text-text-muted">系统</div>
-                  <div className="font-data text-sm">{item.systemQty}</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-[11px] text-text-muted">现场</div>
-                  <div className="font-data text-sm">{item.actualQty}</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-[11px] text-text-muted">差异</div>
-                  <div className={cn('font-data text-sm font-semibold', diff === 0 ? 'text-success' : 'text-danger')}>
-                    {diff > 0 ? '+' : ''}{diff}
-                  </div>
-                </div>
-              </div>
-              {diff !== 0 && (
-                <div className="mt-2 flex items-center gap-1.5 text-[11px] text-danger">
-                  <AlertTriangle className="h-3.5 w-3.5" />
-                  初判：{item.issue}，需人工复核确认
-                </div>
-              )}
-            </div>
-          );
-        })}
+      <div className="mt-3 rounded-lg border-2 border-danger/30 bg-danger/10 p-3">
+        <div className="flex items-center gap-2 text-xs font-semibold text-danger">
+          <AlertTriangle className="h-4 w-4" />
+          PDA 现场盘点少 2 箱
+        </div>
+        <p className="mt-1 text-[11px] leading-relaxed text-text-secondary">
+          系统库存 12 箱，现场点数 10 箱。已预选问题分类为漏盘，可直接提交。
+        </p>
+        <button
+          onClick={() => navigate('/pda/problem/handover?scenario=recount')}
+          className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded bg-danger text-xs font-semibold text-white"
+        >
+          <DemoStepBadge step={3} />
+          提交差异处理
+        </button>
+      </div>
+
+      <div className="mt-3 rounded-lg border border-danger/30 bg-danger/10 p-3">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-semibold text-text-primary">矿泉水</span>
+          <span className="rounded bg-danger px-2 py-0.5 text-[11px] font-bold text-white">漏盘</span>
+        </div>
+        <div className="mt-2 grid grid-cols-3 gap-2">
+          <div className="text-center">
+            <div className="text-[11px] text-text-muted">系统</div>
+            <div className="font-data text-sm">12 箱</div>
+          </div>
+          <div className="text-center">
+            <div className="text-[11px] text-text-muted">现场</div>
+            <div className="font-data text-sm">10 箱</div>
+          </div>
+          <div className="text-center">
+            <div className="text-[11px] text-text-muted">差异</div>
+            <div className="font-data text-sm font-semibold text-danger">-2</div>
+          </div>
+        </div>
       </div>
 
       <div className="mt-4 rounded-lg bg-white p-3">
         <div className="mb-2 flex items-center gap-2">
           <ScanText className="h-4 w-4 text-info" />
-          <h3 className="text-sm font-semibold text-text-primary">存疑批次 OCR 全量识别</h3>
+          <h3 className="text-sm font-semibold text-text-primary">PDA 采集字段</h3>
         </div>
         <div className="grid grid-cols-2 gap-2">
           {ocrFields.map((field) => (
@@ -135,21 +129,23 @@ const RecountResult: FC = () => {
           <h3 className="text-sm font-semibold text-text-primary">现场证据</h3>
         </div>
         <div className="grid grid-cols-2 gap-2">
-          {[
-            { icon: ScanLine, label: '库位码', value: 'A-03-05 已确认', ok: true },
-            { icon: ScanLine, label: '货物码', value: 'SKU-INV-001 已匹配', ok: true },
-            { icon: Tag, label: '标签状态', value: '1 项需补打', ok: false },
-            { icon: Camera, label: '照片', value: '4 张已上传', ok: true },
-          ].map((item) => {
+          {evidencePhotos.map((item) => {
             const Icon = item.icon;
             return (
-              <div key={item.label} className="rounded bg-primary px-2 py-2">
-                <div className="flex items-center justify-between">
-                  <Icon className={cn('h-4 w-4', item.ok ? 'text-success' : 'text-warning')} />
-                  <CheckCircle2 className={cn('h-3.5 w-3.5', item.ok ? 'text-success' : 'text-warning')} />
+              <div key={item.label} className="overflow-hidden rounded bg-primary">
+                <div className="relative h-16 bg-[#0F172A]">
+                  <img src={item.image} alt={item.label} className="h-full w-full object-cover" />
+                  <div className="absolute left-1.5 top-1.5 rounded bg-success px-1.5 py-0.5 text-[9px] font-semibold text-white">
+                    已采集
+                  </div>
                 </div>
-                <p className="mt-1 text-[10px] text-text-muted">{item.label}</p>
-                <p className="mt-0.5 text-[11px] font-semibold text-text-primary">{item.value}</p>
+                <div className="px-2 py-1.5">
+                  <div className="flex items-center gap-1">
+                    <Icon className="h-3.5 w-3.5 text-success" />
+                    <p className="text-[10px] text-text-muted">{item.label}</p>
+                  </div>
+                  <p className="mt-0.5 truncate text-[11px] font-semibold text-text-primary">{item.value}</p>
+                </div>
               </div>
             );
           })}
@@ -160,51 +156,22 @@ const RecountResult: FC = () => {
       <div className="mt-4 rounded-md border-l-[3px] border-l-info bg-white p-3">
         <span className="text-xs font-semibold text-info">Agent建议：</span>
         <p className="mt-1 text-xs text-text-secondary">
-          一致项生成盘点报告写库，差异项转问题件处理
+          RC-001 现场盘点少 2 箱。建议现场人员在 PDA 提交差异，后台保留照片、库位码、货物码和标签记录。
         </p>
       </div>
 
       {/* Action buttons */}
       <div className="mt-6 space-y-2">
         <button
-          onClick={() => {
-            setMode('consistent');
-            setReportWritten(true);
-          }}
-          className={cn('h-11 w-full rounded-md text-sm font-semibold text-white',
-            mode === 'consistent' ? 'bg-success' : 'bg-success/70'
-          )}
+          onClick={() => navigate('/pda/problem/handover?scenario=recount')}
+          className="h-11 w-full rounded-md bg-danger text-sm font-semibold text-white"
         >
-          {reportWritten ? '报告已生成 · 最新盘点日期已写入' : '一致 — 生成报告写库'}
-        </button>
-        <button
-          onClick={() => navigate('/pda/problem/handover')}
-          className={cn('h-11 w-full rounded-md text-sm font-semibold text-white',
-            mode === 'diff' ? 'bg-danger' : 'bg-danger/70'
-          )}
-        >
-          差异 — 转问题件
-        </button>
-        <button
-          onClick={() => navigate('/pda/recount/reprint')}
-          className="h-11 w-full rounded-md border border-border bg-white text-sm text-text-secondary"
-        >
-          补打标签
+          <span className="inline-flex items-center justify-center gap-2">
+            <DemoStepBadge step={3} />
+            提交差异处理
+          </span>
         </button>
       </div>
-
-      {reportWritten && (
-        <div className="mt-3 flex items-center gap-2 rounded-lg bg-success/10 p-3">
-          <CheckCircle2 className="h-4 w-4 text-success" />
-          <div>
-            <div className="text-xs font-semibold text-success">盘点结果已写入</div>
-            <div className="mt-0.5 flex items-center gap-1 text-[10px] text-text-muted">
-              <FileText className="h-3 w-3" />
-              报告编号 RC-RPT-20260521-001
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

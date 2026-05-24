@@ -23,7 +23,7 @@ const modeLabels: Record<string, { label: string; color: string }> = {
   '/station/receive': { label: '收货检测', color: 'text-info' },
   '/station/outbound': { label: '出库复核', color: 'text-success' },
   '/station/triage': { label: '包装分流', color: 'text-warning' },
-  '/station/recount': { label: '盘点复核', color: 'text-warning' },
+  '/station/recount': { label: '固定相机抽检', color: 'text-info' },
   '/station/return-inbound': { label: '退料复检', color: 'text-info' },
 };
 
@@ -37,7 +37,14 @@ const MIN_SCALE = 0.4;
 export const StationFrame: FC<StationFrameProps> = ({ className }) => {
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const currentMode = modeLabels[location.pathname] || modeLabels['/station'];
+  const demoModeLabels: Record<string, { label: string; color: string }> = {
+    counting: { label: '视觉点数', color: 'text-info' },
+    'label-check': { label: '标签检测', color: 'text-info' },
+    ocr: { label: 'OCR 抽检', color: 'text-info' },
+    barcode: { label: '条码采集', color: 'text-info' },
+  };
+  const demoMode = demoModeLabels[searchParams.get('demo') ?? ''];
+  const currentMode = demoMode || modeLabels[location.pathname] || modeLabels['/station'];
   const isPurchaseGuide = searchParams.get('scenario') === 'purchase-receive';
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
